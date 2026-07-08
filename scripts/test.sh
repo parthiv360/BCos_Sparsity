@@ -5,8 +5,10 @@ CONDA_ENV_NAME="agentic-eval"
 
 PROJECT_DIR="/home/pasa00007/Hiwi/BCos_Sparsity/"
 
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate "$CONDA_ENV_NAME"
+# source "$(conda info --base)/etc/profile.d/conda.sh"
+# conda activate "$CONDA_ENV_NAME"
+
+conda activate "/home/pasa00007/.conda/envs/agentic-eval"
 
 cd "$PROJECT_DIR" || { echo "Failed to change directory to $PROJECT_DIR"; exit 1; }
 
