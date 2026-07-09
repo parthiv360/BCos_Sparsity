@@ -13,7 +13,7 @@ class GPT2Setup:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = GPT2LMHeadModel.from_pretrained("gpt2")
+        self.model = GPT2LMHeadModel.from_pretrained("gpt2",attn_implementation="eager" )
         self.model.to(self.device)
         self.model.eval()
         torch.set_grad_enabled(False)
