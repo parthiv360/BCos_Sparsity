@@ -2,6 +2,7 @@ from setup_model import GPT2Setup
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 class ModelInspector:
     def __init__(self):
@@ -33,13 +34,6 @@ class ModelInspector:
         for layer_idx, layer_attention in enumerate(attentions):
             print(f"Layer {layer_idx}: Attention shape {layer_attention.shape}")
         
-    def analyze_weight_distribution(self):
-        """
-        Analyzes the weight distribution of the GPT-2 model.
-        """
-        for name, param in self.model.named_parameters():
-            if "weight" in name and "h.0" in name: # Only showing Layer 0 to save space
-                print(f"{name:30s}: Mean={param.data.mean():.4f}, Std={param.data.std():.4f}")
     
     def visualize_attention(self, prompt, layer=0, head=0):
         """
@@ -59,6 +53,8 @@ class ModelInspector:
         token_ids = inputs.input_ids[0].cpu().numpy()
         tokens = [self.tokenizer.decode([t]) for t in token_ids]
 
+        os.makedirs("attention_maps", exist_ok=True)
+
         plt.figure(figsize=(10, 8))
         sns.heatmap(
             layer_attention, 
@@ -72,7 +68,10 @@ class ModelInspector:
         plt.xticks(rotation=45, ha='right')
         plt.yticks(rotation=0)
         plt.tight_layout()
-        plt.show()
+
+        plt.savefig(f"attention_maps/attention_layer{layer}_head{head}.png")
+        plt.close()
+        print(f"Attention map saved to attention_maps/attention_layer{layer}_head{head}.png")
 
 def main():
     prompt = "When John and Mary went to the store, John gave a bottle of milk to"
