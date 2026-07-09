@@ -78,7 +78,6 @@ def main():
     inspector = ModelInspector()
     inspector.inspect_architecture()
     inspector.inspect_attention_heads(prompt)
-    inspector.analyze_weight_distribution()
     inspector.visualize_attention(prompt,layer=9,head=9)
 
 if __name__ == "__main__":
