@@ -87,7 +87,7 @@ class ActivationPatching:
         print(f"Logit difference after patching on {corrupted_prompt}: {patched_diff}")
         print(f"Recovery after patching: {recovery:.2f}")
 
-
+        return recovery
 
 def main():
     # activation_patching = ActivationPatching()
@@ -103,13 +103,18 @@ def main():
     target_incorrect = "John"
 
     activation_patcher = ActivationPatching()
-    activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[9].attn,
+    recoveries = []
+    for i in range(12):
+        recovery = activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[i].attn,
                                            hook_name="block_9.attn",
                                            clean_prompt=clean_prompt,
                                            corrupted_prompt=corrupted_prompt,
                                            target_correct=target_correct,
                                            target_incorrect=target_incorrect,
-                                           target_layer=activation_patcher.model.transformer.h[9].attn)
+                                           target_layer=activation_patcher.model.transformer.h[i].attn)
+        recoveries.append(recovery)
+    for i, recovery in enumerate(recoveries):
+        print(f"Recovery for block {i}: {recovery:.2f}")
 
 if __name__ == "__main__":
     main()
