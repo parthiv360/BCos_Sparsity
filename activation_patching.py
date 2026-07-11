@@ -106,7 +106,7 @@ def main():
     recoveries = []
     for i in range(12):
         recovery = activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[i].attn,
-                                           hook_name="block_{i}.attn",
+                                           hook_name=f"block_{i}.attn",
                                            clean_prompt=clean_prompt,
                                            corrupted_prompt=corrupted_prompt,
                                            target_correct=target_correct,
