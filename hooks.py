@@ -112,7 +112,7 @@ class Hooks:
 
             print(
                 f"{name}"
-                f" Shape={tuple(tensor.shape)}"
+                f" Shape={tuple(tensor.shape)}" # shape is [batch_size, seq_len, hidden_dim]
                 f" Mean={tensor.mean():.4f}"
                 f" Std={tensor.std():.4f}"
             )
