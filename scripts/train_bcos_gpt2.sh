@@ -1,6 +1,21 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-python -m decoder_experiments.train_bcos_gpt2 \
+SCRIPT_NAME="bcos_lm/train_bcos_gpt2.py"
+CONDA_ENV_NAME="base"  # Use the base environment
+
+PROJECT_DIR="/home/pasa00007/Hiwi/BCos_Sparsity/"
+CONDA_PYTHON="/home/pasa00007/.conda/envs/agentic-eval/bin/python"
+
+# Navigate to the project directory
+cd "$PROJECT_DIR" || { echo "Failed to change directory to $PROJECT_DIR"; exit 1; }
+
+echo "=========================================="
+echo "Starting Training"
+echo "Script: $SCRIPT_NAME"
+echo "Conda Environment: $CONDA_ENV_NAME"
+echo "=========================================="
+
+"$CONDA_PYTHON" "$SCRIPT_NAME" \
     --model_name_or_path gpt2 \
     --dataset_name="webtext" \
     --output_dir "bcos_gpt2" \
@@ -14,4 +29,8 @@ python -m decoder_experiments.train_bcos_gpt2 \
     --num_eval_examples=10000 \
     --seed=42 \
     --b 1.1 \
-    --bcos \
+    --bcos
+
+echo "=========================================="
+echo "Training Completed"
+echo "=========================================="
