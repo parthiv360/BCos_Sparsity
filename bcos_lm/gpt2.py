@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Union
 from torch import nn
 from functools import partial
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-from transformers.modeling_utils import PreTrainedModel, SequenceSummary
+from transformers.modeling_utils import PreTrainedModel
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from transformers.modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa, _prepare_4d_causal_attention_mask_for_sdpa
 from transformers.models.gpt2.configuration_gpt2 import GPT2Config
