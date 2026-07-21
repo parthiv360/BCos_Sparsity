@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_NAME="bcos_lm/train_bcos_gpt2.py"
+SCRIPT_NAME="bcos_lm/train_model.py"
 CONDA_ENV_NAME="base"  # Use the base environment
 
 PROJECT_DIR="/home/pasa00007/Hiwi/BCos_Sparsity/"
