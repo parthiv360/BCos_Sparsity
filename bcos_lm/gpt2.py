@@ -40,7 +40,7 @@ from bcos_lm.modules.bcoslinear import BcosLinear,BcosGELUActivation,BcosNewGELU
 from bcos_lm.modules.common import BcosModelBase,DynamicMultiplication,DynamicMatrixMultiplication
 from bcos_lm.modules import norms
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "openai-community/gpt2"
 _CONFIG_FOR_DOC = "GPT2Config"
