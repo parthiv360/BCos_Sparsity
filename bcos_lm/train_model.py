@@ -178,6 +178,7 @@ def main():
 
     # Initialize the tokenizer and model
     config = AutoConfig.from_pretrained(args.model_name_or_path)
+    config._attn_implementation = "eager"
     config.bcos = args.bcos
     config.b = args.b
     config.bce = args.bce
