@@ -28,7 +28,7 @@ import torch.distributed as dist
 
 def main():
     # Argument parser for hyperparameters
-    parser = argparse.ArgumentParser(description="Fine-tune BERT for sequence classification")
+    parser = argparse.ArgumentParser(description="Fine-tune GPT for sequence classification")
 
 
     # Hyperparameters

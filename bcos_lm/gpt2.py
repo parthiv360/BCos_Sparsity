@@ -36,7 +36,7 @@ from transformers.modeling_outputs import (
     TokenClassifierOutput,
 )
 
-from bcos_lm.modules.bcoslinear import BcosLinear,BcosGELUActivation,BcosNewGELUActivation,Conv1D,BcosConv1D
+from bcos_lm.modules.bcoslinear import BcosLinear,BcosGELUActivation,BcosNewGELUActivation, Conv1D, BcosConv1D
 from bcos_lm.modules.common import BcosModelBase,DynamicMultiplication,DynamicMatrixMultiplication
 from bcos_lm.modules import norms
 

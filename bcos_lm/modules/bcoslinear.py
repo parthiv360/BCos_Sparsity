@@ -141,3 +141,83 @@ class BcosSILUActivation(nn.Module):
         dynamic_scaling = torch.nn.functional.sigmoid(input)
         output = self.dynamic_multiplication(weight=dynamic_scaling, input=input)
         return output
+    
+class Conv1D(nn.Module):
+    """
+    1-D Convolution layer implemented in the transformer library.
+
+    Args:
+        nf (`int`): The number of output features.
+        nx (`int`): The number of input features.
+    """
+    def __init__(self,nf,nx):
+        super().__init__()
+        self.nf = nf
+        self.nx = nx
+        self.weight = nn.Parameter(torch.empty(nx,nf))
+        self.bias = nn.Parameter(torch.zeros(nf))
+        nn.init.normal_(self.weight, std=0.02)
+
+    def forward(self, x):
+        size_out = x.size()[:-1] + (self.nf,)
+        x = torch.addmm(self.bias, x.view(-1, x.size(-1)), self.weight)
+        x = x.view(size_out)
+        return x
+
+class BcosConv1D(nn.Module):
+    """
+    B-cos version of Conv1D
+
+    Args:
+        nf (`int`): The number of output features.
+        nx (`int`): The number of input features.
+        b (`float`): B-cos parameter.
+    """
+
+    def __init__(self, nf,nx, b, normalize_weights: bool = True):
+        super().__init__()
+        self.nf =nf
+        self.nx = nx
+        self.b =b 
+        self.normalize_weights = normalize_weights
+        self.weight = nn.Parameter(torch.empty(nx,nf))
+        self.bias = nn.Parameter(torch.zeros(nf))
+        nn.init.normal_(self.weight, std=0.02)
+
+        self.dynamic_multiplication = DynamicMultiplication()
+    
+    def forward(self, x):
+
+        if self.normalize_weights:
+            weight = self.weight / (self.weight.norm(p=2,dim=0,keepdim=True)+1e-6)
+        else:
+            weight = self.weight
+        
+        size_out = x.size()[:-1]+ (self.nf,)
+        out = torch.mm(x.view(-1,x.size(-1)), weight)
+        out = out.view(size_out)
+
+        if self.b == 1:
+            return out
+        
+        # Shape [batch_size, seq_len, 1]
+        norm = (x ** 2).sum(dim=-1, keepdim=True).add(1e-6).sqrt()
+
+        if not self.normalize_weights:
+            w_norm = self.weight.norm(p=2, dim=0, keepdim=True)
+            norm = norm*w_norm
+        
+        if self.b == 2:
+            dynamic_weights = out.abs()/norm
+        else:
+            abs_cos = (out/norm).abs()+1e-6
+            dynamic_weights = abs_cos.pow(self.b-1)
+        
+        out = self.dynamic_multiplication(weight=dynamic_weights,input=out)
+        return out
+
+
+
+
+
+
