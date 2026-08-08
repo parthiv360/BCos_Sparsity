@@ -150,12 +150,17 @@ class Conv1D(nn.Module):
         nf (`int`): The number of output features.
         nx (`int`): The number of input features.
     """
-    def __init__(self,nf,nx):
+    def __init__(self,nf,nx, bias = True):
         super().__init__()
         self.nf = nf
         self.nx = nx
         self.weight = nn.Parameter(torch.empty(nx,nf))
-        self.bias = nn.Parameter(torch.zeros(nf))
+
+        if bias:
+            self.bias = nn.Parameter(torch.zeros(nf))
+        else:
+            self.register_parameter('bias', None)
+        
         nn.init.normal_(self.weight, std=0.02)
 
     def forward(self, x):
