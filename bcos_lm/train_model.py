@@ -333,7 +333,7 @@ def main():
         )
 
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True)
 
 
     # 3. Identify the best checkpoint (Trainer tracked it during training)
