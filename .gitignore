@@ -3,3 +3,4 @@ dataset/
 logs/
 attention_maps/
 .DS_Store
+bcos_gpt2/
