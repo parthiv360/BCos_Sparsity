@@ -55,7 +55,7 @@ if __name__ == "__main__":
     model.to(device)
     model.eval()
 
-    results_dir = f"{args.output_dir}/ioi"
+    results_dir = f"{args.output_dir}"
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     
