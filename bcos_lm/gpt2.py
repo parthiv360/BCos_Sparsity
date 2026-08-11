@@ -508,8 +508,8 @@ class GPT2PreTrainedModel(PreTrainedModel, BcosModelBase):
             return cls.from_pretrained(model_name_or_path, config=config) 
         elif is_bcos(config) and is_bcos(orig_config):
             print(f"Loading Bcos model {model_name_or_path} to a Bcos model")
-            if hasattr(orig_config, "_attn_implementation"):
-                orig_config._attn_implementation = "eager"
+            # if hasattr(orig_config, "_attn_implementation"):
+            #     orig_config._attn_implementation = "eager"
             return cls.from_pretrained(model_name_or_path, config=orig_config)
         elif not is_bcos(config) and is_bcos(orig_config):
             print("Why would you convert a Bcos model to a conventional model?")

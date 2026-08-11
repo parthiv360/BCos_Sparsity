@@ -45,7 +45,7 @@ if __name__ == "__main__":
     model_dir = args.model_dir
     model_name_or_path = "gpt2"
     config = AutoConfig.from_pretrained(model_dir)
-    config.attn_implementation = "eager"
+    config._attn_implementation = "eager"
     if "gpt" in model_dir:
         model = GPT2LMHeadModel.load_from_pretrained(model_dir, config=config)
     else:
