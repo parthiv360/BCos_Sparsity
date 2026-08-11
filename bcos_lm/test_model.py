@@ -7,7 +7,7 @@ import json
 from tqdm import tqdm
 import numpy as np
 
-DATA_DIR = "BCos_Sparsity/data"
+DATA_DIR = "data"
         
 ioi_datasets = ["ioi_dataset"]
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     model.to(device)
     model.eval()
 
-    results_dir = f"decoder_experiments/{args.output_dir}/ioi"
+    results_dir = f"{args.output_dir}/ioi"
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     
