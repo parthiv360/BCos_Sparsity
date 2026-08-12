@@ -4,3 +4,4 @@ logs/
 attention_maps/
 .DS_Store
 bcos_gpt2/
+bcos_gpt2_results/
