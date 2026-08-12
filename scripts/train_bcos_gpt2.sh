@@ -19,7 +19,7 @@ echo "=========================================="
 "$CONDA_PYTHON" -m "$MODULE_NAME" \
     --model_name_or_path gpt2 \
     --dataset_name="webtext" \
-    --output_dir "bcos_gpt2" \
+    --output_dir "bcos_gpt2_epoch" \
     --batch_size=16 \
     --gradient_accumulation_steps=1 \
     --max_seq_length=512 \
