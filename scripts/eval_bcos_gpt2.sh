@@ -17,8 +17,8 @@ echo "Conda Environment: $CONDA_ENV_NAME"
 echo "=========================================="
 
 "$CONDA_PYTHON" -m "$MODULE_NAME" \
-    --model_dir "gpt2_epoch" \
-    --output_dir "vanilla_gpt2_epoch_results" \
+    --model_dir "gpt2" \
+    --output_dir "vanilla_gpt2_results" \
 
 echo "=========================================="
 echo "Evaluation Completed"
