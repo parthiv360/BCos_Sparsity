@@ -232,10 +232,10 @@ def main():
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         per_device_eval_batch_size=args.batch_size,
-        eval_strategy="steps",
-        save_strategy="steps",
-        save_steps=args.save_steps,
-        save_total_limit=1,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        # save_steps=args.save_steps,
+        save_total_limit=None,
         eval_steps=args.eval_steps,
         load_best_model_at_end=True,    
         metric_for_best_model=metric_for_best_model,
@@ -333,7 +333,7 @@ def main():
         )
 
 
-    trainer.train(resume_from_checkpoint=True)
+    trainer.train()
 
 
     # 3. Identify the best checkpoint (Trainer tracked it during training)
