@@ -17,7 +17,7 @@ echo "Conda Environment: $CONDA_ENV_NAME"
 echo "=========================================="
 
 "$CONDA_PYTHON" -m "$MODULE_NAME" \
-    --checkpoint "bcos_gpt2/checkpoint-156000" \
+    --checkpoint "vanilla_gpt2_epoch/checkpoint-156250" \
     --head 9 \
     --layer 9 \
 
