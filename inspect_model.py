@@ -1,15 +1,27 @@
-from setup_model import GPT2Setup
+from bcos_lm.gpt2 import GPT2LMHeadModel
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
+import os, argparse
+
+from transformers import AutoConfig, AutoTokenizer
 
 class ModelInspector:
-    def __init__(self):
-        self.gpt2_setup = GPT2Setup()
-        self.model = self.gpt2_setup.model
-        self.tokenizer = self.gpt2_setup.tokenizer
-        self.device = self.gpt2_setup.device
+    def __init__(self, checkpoint_path):
+       self.checkpoint_path = checkpoint_path
+
+       self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+       config = AutoConfig.from_pretrained(checkpoint_path)
+       config._attn_implementation = "eager"
+
+       self.model = GPT2LMHeadModel.load_from_pretrained(checkpoint_path, config=config)
+       self.tokenizer = AutoTokenizer.from_pretrained(checkpoint_path)
+       self.model.to(self.device)
+       self.model.eval()
+
+       print(f"Loaded model from {checkpoint_path} on device {self.device}")
+
     
     def inspect_architecture(self):
         """
@@ -69,16 +81,41 @@ class ModelInspector:
         plt.yticks(rotation=0)
         plt.tight_layout()
 
-        plt.savefig(f"attention_maps/attention_layer{layer}_head{head}.png")
+        checkpoint_name = os.path.basename(self.checkpoint_path)
+        os.makedirs(f"attention_maps/{checkpoint_name}", exist_ok=True)
+        plt.savefig(f"attention_maps/{checkpoint_name}/attention_layer{layer}_head{head}.png")
         plt.close()
-        print(f"Attention map saved to attention_maps/attention_layer{layer}_head{head}.png")
+        print(f"Attention map saved to attention_maps/{checkpoint_name}/attention_layer{layer}_head{head}.png")
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="Path to trained checkpoint"
+    )
+    parser.add_argument(
+        "--layer",
+        type=int,
+        default=9,
+        help="Transformer layer to visualize"
+    )
+    parser.add_argument(
+        "--head",
+        type=int,
+        default=9,
+        help="Attention head to visualize"
+    )
+
+    args = parser.parse_args()
+
     prompt = "When John and Mary went to the store, John gave a bottle of milk to"
-    inspector = ModelInspector()
+
+    inspector = ModelInspector(args.checkpoint)
     inspector.inspect_architecture()
     inspector.inspect_attention_heads(prompt)
-    inspector.visualize_attention(prompt,layer=9,head=9)
+    inspector.visualize_attention(prompt, layer=args.layer, head=args.head)
 
 if __name__ == "__main__":
     main()
