@@ -1,16 +1,30 @@
+import argparse
+
+from bcos_lm.gpt2 import GPT2LMHeadModel
 import torch
 from setup_model import GPT2Setup
 from hooks import Hooks
 from utils import get_logit_diff
+from transformers import AutoConfig, AutoTokenizer
 
 class ActivationPatching:
-    def __init__(self):
+    def __init__(self, checkpoint_path):
 
-        self.gpt2 = GPT2Setup()
-        self.model = self.gpt2.model
-        self.tokenizer = self.gpt2.tokenizer
-        self.device = self.gpt2.device
+        self.checkpoint_path = checkpoint_path
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        config = AutoConfig.from_pretrained(checkpoint_path)
+        config._attn_implementation = "eager"
+
+        self.model = GPT2LMHeadModel.load_from_pretrained(checkpoint_path, config=config)
+        self.tokenizer = AutoTokenizer.from_pretrained(checkpoint_path)
+
+        self.model.to(self.device)
+        self.model.eval()
+
         self.hooks = Hooks(self.model)
+
+        print(f"Model loaded from {checkpoint_path}.")
+
 
     def test_hooks(self):
         """
@@ -96,13 +110,23 @@ def main():
     # activation_patching.print_specific_activation(block_index)
     # activation_patching.hooks.remove_hooks()
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="Path to the model checkpoint.",
+    )
+
+    args = parser.parse_args()
+
     clean_prompt = "When John and Mary went to the store, John gave a bottle of milk to"
     corrupted_prompt = "When John and Mary went to the store, Mary gave a bottle of milk to"
 
     target_correct = "Mary"
     target_incorrect = "John"
 
-    activation_patcher = ActivationPatching()
+    activation_patcher = ActivationPatching(args.checkpoint)
     recoveries = []
     for i in range(12):
         recovery = activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[i].attn,
