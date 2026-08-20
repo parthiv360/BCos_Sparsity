@@ -1,11 +1,11 @@
 #!/bin/bash
 
-SCRIPT_NAME="wandb_init.py"
+SCRIPT_NAME="bcos_lm/wandb_init.py"
 CONDA_ENV_NAME="agentic-eval"
 
 PROJECT_DIR="/home/pasa00007/Hiwi/BCos_Sparsity/"
 CONDA_PYTHON="/home/pasa00007/.conda/envs/agentic-eval/bin/python"
-MODULE_NAME="wandb_init"
+MODULE_NAME="bcos_lm.wandb_init"
 
 # Navigate to the project directory
 cd "$PROJECT_DIR" || {
