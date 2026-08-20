@@ -1,3 +1,6 @@
+# This python code is used to load the results of a training run from an already run checkpoint and has no wandb implementation.
+#  It reads the training state from trainer_state.json file, initializes a WandB run with the specified project name, and logs the training and evaluation metrics step by step.
+
 import json
 import wandb
 import argparse
