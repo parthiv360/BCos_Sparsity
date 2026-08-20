@@ -62,6 +62,10 @@ def main():
                         help='Evaluate the model every X training steps')
     parser.add_argument('--save_steps', type=int, default=2000,
                         help='Save the model every X training steps')
+    parser.add_argument('--wandb_project', type=str, default='bcos_gpt2',
+                        help='Weights & Biases project name')
+    parser.add_argument('--wandb_run_name', type=str, default=None,
+                        help='Optional Weights & Biases run name')
     parser.add_argument("--num_train_examples", type=int, default=1000000,)
     parser.add_argument("--num_eval_examples", type=int, default=10000,)
     parser.add_argument('--b', type=float, default=2.0,)
@@ -72,6 +76,7 @@ def main():
 
 
     args = parser.parse_args()
+    os.environ['WANDB_PROJECT'] = args.wandb_project
     print("start experiment")
     """
     dist.init_process_group("nccl")
@@ -243,6 +248,8 @@ def main():
         logging_steps=args.eval_steps,
         log_level="info",
         logging_dir=os.path.join(args.output_dir, "logs"),
+        report_to="wandb",
+        run_name=args.wandb_run_name,
         prediction_loss_only=False,
         learning_rate=args.learning_rate,
         lr_scheduler_type="linear",
