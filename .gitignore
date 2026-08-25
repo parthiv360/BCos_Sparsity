@@ -12,3 +12,5 @@ vanilla_gpt2_epoch/
 vanilla_gpt2_epoch_results/
 wandb/
 *.pyc
+wandb/
+token_counts/
