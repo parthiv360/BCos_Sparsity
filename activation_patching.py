@@ -184,8 +184,9 @@ def main():
     #     recoveries.append(recovery)
     # for i, recovery in enumerate(recoveries):
     #     print(f"Recovery for block {i}: {recovery:.2f}")
-    recoveries = [[]]
+    recoveries = []
     for layer in range(12):
+        layer_recoveries = []
         for head in range(12):
             recovery = activation_patcher.head_activation_patching(layer=layer,
                                                                    head_idx=head,
@@ -193,12 +194,12 @@ def main():
                                                                    corrupted_prompt=corrupted_prompt,
                                                                    target_correct=target_correct,
                                                                    target_incorrect=target_incorrect)
-            recoveries.append(recovery)
-            print(f"Recovery for layer {layer}, head {head}: {recovery:.2f}")
+            layer_recoveries.append(recovery)
+        recoveries.append(layer_recoveries)
 
     for layer in range(12):
         for head in range(12):
-            print(f"Recovery for layer {layer}, head {head}: {recovery:.2f}")
+            print(f"Recovery for layer {layer}, head {head}: {recoveries[layer][head]:.2f}")
 
 
 
