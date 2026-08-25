@@ -6,6 +6,7 @@ from setup_model import GPT2Setup
 from hooks import Hooks
 from utils import get_logit_diff
 from transformers import AutoConfig, AutoTokenizer
+import numpy as np
 
 class ActivationPatching:
     def __init__(self, checkpoint_path):
@@ -197,9 +198,11 @@ def main():
             layer_recoveries.append(recovery)
         recoveries.append(layer_recoveries)
 
-    for layer in range(12):
-        for head in range(12):
-            print(f"Recovery for layer {layer}, head {head}: {recoveries[layer][head]:.2f}")
+    print("\nRecovery Matrix:")
+    print(np.array2string(
+        np.array(recoveries),
+    formatter={"float_kind": lambda x: f"{x:.2f}"}
+    ))
 
 
 
