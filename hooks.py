@@ -116,3 +116,53 @@ class Hooks:
                 f" Mean={tensor.mean():.4f}"
                 f" Std={tensor.std():.4f}"
             )
+
+    def save_head_activation(self, layer):
+        """
+        Tell a GPT2Attention module to save its per-head attention output.
+        """
+        target_module = self.model.transformer.h[layer].attn
+        if target_module is None:
+            raise ValueError(f"Attention module not found for layer {layer}")
+        target_module.save_head_activation()
+        print(f"[*] Save head activation hook registered for layer {layer}")
+
+    def get_head_activation(self, layer):
+        """
+        Get the saved per-head attention output from a GPT2Attention module.
+        """
+        target_module = self.model.transformer.h[layer].attn
+        if target_module is None:
+            raise ValueError(f"Attention module not found for layer {layer}")
+        return target_module.get_head_activation()
+
+    def clear_head_activation(self, layer):
+        """
+        Clear the saved per-head attention output from a GPT2Attention module.
+        """
+        target_module = self.model.transformer.h[layer].attn
+        if target_module is None:
+            raise ValueError(f"Attention module not found for layer {layer}")
+        target_module.clear_patch_head()
+        print(f"[*] Cleared head activation for layer {layer}")
+
+    def patch_head_activation(self, layer, head_idx, activation):
+        """
+        Patch one attention head's activation in a GPT2Attention module with a given activation tensor.
+        """
+        target_module = self.model.transformer.h[layer].attn
+        if target_module is None:
+            raise ValueError(f"Attention module not found for layer {layer}")
+        target_module.set_patch_activation(head_idx, activation)
+        print(f"[*] Patched head activation for layer {layer}, head {head_idx}")
+
+    def clear_patch_activation(self, layer):
+        """
+        Remove the head level patch.
+        """
+        target_module = self.model.transformer.h[layer].attn
+        if target_module is None:
+            raise ValueError(f"Attention module not found for layer {layer}")
+        target_module.clear_patch_activation()
+        print(f"[*] Cleared patched activation for layer {layer}")
+        

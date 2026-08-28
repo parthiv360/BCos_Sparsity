@@ -6,6 +6,7 @@ from setup_model import GPT2Setup
 from hooks import Hooks
 from utils import get_logit_diff
 from transformers import AutoConfig, AutoTokenizer
+import numpy as np
 
 class ActivationPatching:
     def __init__(self, checkpoint_path):
@@ -103,6 +104,51 @@ class ActivationPatching:
 
         return recovery
 
+    def head_activation_patching(self, layer, head_idx, clean_prompt, corrupted_prompt, target_correct, target_incorrect):
+        """
+        Perform head activation patching by comparing the logit differences between a clean and corrupted prompt.
+        """
+
+        print(f"Establishing baseline logit difference...")
+        correct_diff = get_logit_diff(model=self.model, 
+                                      tokenizer=self.tokenizer, 
+                                      prompt=clean_prompt, 
+                                      correct=target_correct, 
+                                      incorrect=target_incorrect, 
+                                      device=self.device)
+        incorrect_diff = get_logit_diff(model=self.model,
+                                        tokenizer=self.tokenizer, 
+                                      prompt=corrupted_prompt, 
+                                      correct=target_correct, 
+                                      incorrect=target_incorrect, 
+                                      device=self.device)
+        
+        print(f"Baseline logit difference for clean prompt: {correct_diff}")
+        print(f"Baseline logit difference for corrupted prompt: {incorrect_diff}")
+
+        attn = self.model.transformer.h[layer].attn
+        self.hooks.save_head_activation(layer)
+        inputs = self.tokenizer(clean_prompt, return_tensors='pt').to(self.device)
+        with torch.no_grad():
+            self.model(**inputs)
+        clean_activation = self.hooks.get_head_activation(layer)
+        self.hooks.clear_head_activation(layer)
+        print(f"Head activation captured for layer {layer}, head {head_idx}: {clean_activation.shape}")
+
+        self.hooks.patch_head_activation(layer, head_idx, clean_activation)
+        patched_diff = get_logit_diff(model=self.model,
+                                      tokenizer=self.tokenizer,
+                                        prompt=corrupted_prompt,
+                                        correct=target_correct,
+                                        incorrect=target_incorrect,
+                                        device=self.device)
+        self.hooks.clear_patch_activation(layer)
+        recovery = (patched_diff - incorrect_diff) / (correct_diff - incorrect_diff + 1e-8)  
+        print(f"Logit difference after patching on {corrupted_prompt}: {patched_diff}")
+        print(f"Recovery after patching: {recovery:.2f}")
+        return recovery
+        
+
 def main():
     # activation_patching = ActivationPatching()
     # activation_patching.test_hooks()
@@ -127,18 +173,39 @@ def main():
     target_incorrect = "John"
 
     activation_patcher = ActivationPatching(args.checkpoint)
+    # recoveries = []
+    # for i in range(12):
+    #     recovery = activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[i].attn,
+    #                                        hook_name=f"block_{i}.attn",
+    #                                        clean_prompt=clean_prompt,
+    #                                        corrupted_prompt=corrupted_prompt,
+    #                                        target_correct=target_correct,
+    #                                        target_incorrect=target_incorrect,
+    #                                        target_layer=activation_patcher.model.transformer.h[i].attn)
+    #     recoveries.append(recovery)
+    # for i, recovery in enumerate(recoveries):
+    #     print(f"Recovery for block {i}: {recovery:.2f}")
     recoveries = []
-    for i in range(12):
-        recovery = activation_patcher.activation_patching(layer=activation_patcher.model.transformer.h[i].attn,
-                                           hook_name=f"block_{i}.attn",
-                                           clean_prompt=clean_prompt,
-                                           corrupted_prompt=corrupted_prompt,
-                                           target_correct=target_correct,
-                                           target_incorrect=target_incorrect,
-                                           target_layer=activation_patcher.model.transformer.h[i].attn)
-        recoveries.append(recovery)
-    for i, recovery in enumerate(recoveries):
-        print(f"Recovery for block {i}: {recovery:.2f}")
+    for layer in range(12):
+        layer_recoveries = []
+        for head in range(12):
+            recovery = activation_patcher.head_activation_patching(layer=layer,
+                                                                   head_idx=head,
+                                                                   clean_prompt=clean_prompt,
+                                                                   corrupted_prompt=corrupted_prompt,
+                                                                   target_correct=target_correct,
+                                                                   target_incorrect=target_incorrect)
+            layer_recoveries.append(recovery)
+        recoveries.append(layer_recoveries)
+
+    print("\nRecovery Matrix:")
+    print(np.array2string(
+        np.array(recoveries),
+    formatter={"float_kind": lambda x: f"{x:.2f}"}
+    ))
+
+
+
 
 if __name__ == "__main__":
     main()

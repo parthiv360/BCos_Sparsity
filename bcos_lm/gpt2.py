@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 import os
 from typing import Optional, Tuple, Union
-from torch import nn
+from torch import clone, nn
 from functools import partial
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers.modeling_utils import PreTrainedModel
@@ -155,6 +155,10 @@ class GPT2Attention(nn.Module):
 
         self.pruned_heads = set()
 
+        # For head patching and saving activations
+        self.patch_head = None
+        self.patch_activation = None
+
     def prune_heads(self, heads):
         if len(heads) == 0:
             return
@@ -283,6 +287,24 @@ class GPT2Attention(nn.Module):
         new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
         return tensor.view(new_shape)
     
+    # Head patching and activation saving methods
+    def save_head_activation(self):
+        self.patch_head = {}
+
+    def get_head_activation(self):
+        if self.patch_head is None or "activation" not in self.patch_head:
+            raise RuntimeError("No head activation saved.")
+        return self.patch_head["activation"]
+
+    def clear_patch_head(self):
+        self.patch_head = None
+
+    def set_patch_activation(self, head_idx, activation):
+        self.patch_activation = (head_idx, activation)
+
+    def clear_patch_activation(self):
+        self.patch_activation = None
+    
     def forward(
         self,
         hidden_states: Optional[Tuple[torch.FloatTensor]],
@@ -325,6 +347,15 @@ class GPT2Attention(nn.Module):
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)
         else:
             attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+
+        # Here we apply the patching if patch_head and patch_activation are set
+        if self.patch_head is not None:
+            self.patch_head["activation"] = attn_output.detach().clone()
+        if self.patch_activation is not None:
+            head_idx, activation = self.patch_activation
+            attn_output = attn_output.clone()
+            attn_output[:, head_idx, :, :] = activation[:, head_idx, :, :]
+
 
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         attn_output = self.c_proj(attn_output)
