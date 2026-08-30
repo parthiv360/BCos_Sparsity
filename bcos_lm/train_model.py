@@ -148,6 +148,13 @@ def main():
         train_dataset = dataset.select(range(num_train))
         val_dataset = dataset.select(range(len_dataset - num_val - num_test, len_dataset - num_test))
         test_dataset = dataset.select(range(len_dataset - num_test, len_dataset))
+        logging.info(
+            "Dataset loaded: total=%d, train=%d, eval=%d, test=%d",
+            len_dataset,
+            len(train_dataset),
+            len(val_dataset),
+            len(test_dataset),
+        )
     
     else:
         print("Only webtext dataset is supported for now")
@@ -175,6 +182,12 @@ def main():
     tokenized_train_datasets.set_format(type='torch', columns=['input_ids', 'attention_mask'])
     tokenized_eval_datasets = val_dataset.map(tokenize_function, batched=True, num_proc=8)
     tokenized_eval_datasets.set_format(type='torch', columns=['input_ids', 'attention_mask'])  
+    logging.info(
+        "Tokenization complete: train=%d examples, eval=%d examples, max_seq_length=%d",
+        len(tokenized_train_datasets),
+        len(tokenized_eval_datasets),
+        args.max_seq_length,
+    )
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer, mlm=False
@@ -261,6 +274,11 @@ def main():
         optim="adafactor",
     )
 
+    class CheckpointLoggingCallback(TrainerCallback):
+        def on_save(self, args, state, control, **kwargs):
+            checkpoint_path = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
+            logging.info("Checkpoint saved: step=%d, path=%s", state.global_step, checkpoint_path)
+
     class CrossEntropyAggregator:
         """
         Maintains a running sum of negative log-likelihood and count of samples
@@ -329,6 +347,7 @@ def main():
             train_dataset=tokenized_train_datasets,
             eval_dataset=tokenized_eval_datasets,
             compute_metrics=compute_metrics,
+            callbacks=[CheckpointLoggingCallback()],
         )
     else: 
         trainer = Trainer(
@@ -337,6 +356,7 @@ def main():
             data_collator=data_collator,
             train_dataset=tokenized_train_datasets,
             eval_dataset=tokenized_eval_datasets,
+            callbacks=[CheckpointLoggingCallback()],
         )
 
 
@@ -358,6 +378,7 @@ def main():
     config.save_pretrained(args.output_dir)
     # save tokenizer
     tokenizer.save_pretrained(args.output_dir)
+    logging.info("Saved final config and tokenizer to %s", args.output_dir)
 
 
 
