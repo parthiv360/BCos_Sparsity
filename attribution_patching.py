@@ -17,10 +17,10 @@ class AttributionPatching:
         self.tokenizer = AutoTokenizer.from_pretrained(checkpoint_path)
 
         self.model.to(self.device)
-        self.model.train() # Should be in train mode for attribution patching to work properly.
+        self.model.eval()  
 
-        for param in self.model.parameters():
-            param.requires_grad = False
+        # for param in self.model.parameters():
+        #     param.requires_grad = False
 
         self.hooks = Hooks(self.model)
         print(f"Model loaded from {checkpoint_path}.")
