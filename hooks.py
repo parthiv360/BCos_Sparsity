@@ -189,3 +189,17 @@ class Hooks:
         handle = target_module.register_forward_hook(self.save_hook_with_grad(layer_name=hook_name))
         self.hook_handles.append(handle)
         print(f"[*] Save hook with grad registered: {hook_name}")
+
+    def receiver_pre_hook(self, a_orig: torch.Tensor, a_new : torch.Tensor)->Callable:
+        def pre_hook(module: nn.Module, input: Any):
+            hidden_state = input[0]
+            patched_hidden_states = hidden_state- a_orig + a_new
+            return (patched_hidden_states,) + input[1:]
+
+        return pre_hook
+
+    def register_path_patch_hook(self, receiver_module: nn.Module, a_orig: torch.Tensor, a_new: torch.Tensor, hook_name: str = "path_patch"):
+        handle = receiver_module.register_forward_pre_hook(self.receiver_pre_hook(a_orig, a_new))
+        self.hook_handles.append(handle)
+        print(f"[*] Path patch hook registered on receiver: {hook_name}")
+        
