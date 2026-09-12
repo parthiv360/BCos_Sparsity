@@ -82,7 +82,7 @@ if __name__ == "__main__":
     path_patching = PathPatching(args.checkpoint)
 
     eval_path = path_patching.evaluate_path(
-        8,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+        2,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     )
 
     print(f"Path Patching result: {eval_path}")
