@@ -4,7 +4,7 @@ import numpy as np
 from hooks import Hooks
 from transformers import AutoConfig, AutoTokenizer
 from bcos_lm.gpt2 import GPT2LMHeadModel
-
+from utils import get_logit_diff
 class PathPatching:
     def __init__(self, checkpoint_path):
         self.checkpoint_path = checkpoint_path
@@ -23,6 +23,10 @@ class PathPatching:
         print(f"Model loaded from {checkpoint_path}.")
 
     def evaluate_path(self, sender_layer: int, receiver_layer: int, clean_prompt: str, corrupted_prompt: str, target_correct: str, target_incorrect: str ):
+        print("Calculating Baseline...")
+        clean_baseline = get_logit_diff(self.model,self.tokenizer,clean_prompt,target_correct,target_incorrect,self.device)
+        corrupted_baseline = get_logit_diff(self.model, self.tokenizer, corrupted_prompt, target_correct,target_incorrect,self.device)
+
         input_new = self.tokenizer(clean_prompt, return_tensors ='pt').to(self.device)
         input_orig = self.tokenizer(corrupted_prompt, return_tensors ='pt').to(self.device)
 
@@ -53,18 +57,17 @@ class PathPatching:
             hook_name=f"patch_{sender_layer}_to_{receiver_layer}"
         )
 
-        with torch.no_grad():
-            output = self.model(**input_orig)
-            logits = output.logits
+        patched_diff = get_logit_diff(self.model, self.tokenizer, corrupted_prompt, target_correct, target_incorrect, self.device)
         self.hooks.remove_hooks()
 
-        correct_token = self.tokenizer(" " + target_correct, return_tensors='pt').input_ids.to(self.device)
-        incorrect_token = self.tokenizer(" " + target_incorrect, return_tensors='pt').input_ids.to(self.device)
+        recovery = (patched_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
         
-        last_token_logits = logits[0, -1, :]
-        logit_diff = last_token_logits[correct_token[0, 0]] - last_token_logits[incorrect_token[0, 0]]
-        
-        return logit_diff.item()
+        return {
+            "clean_baseline": clean_baseline,
+            "corrupted_baseline": corrupted_baseline,
+            "patched_diff": patched_diff,
+            "recovery": recovery
+        }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -81,8 +84,13 @@ if __name__ == "__main__":
 
     path_patching = PathPatching(args.checkpoint)
 
-    eval_path = path_patching.evaluate_path(
+    results = path_patching.evaluate_path(
         2,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     )
 
-    print(f"Path Patching result: {eval_path}")
+    print(f"Path Patching result:")
+    print("="*50)
+    print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
+    print(f"Corrupted Baseline:  {results['corrupted_baseline']:.4f}")
+    print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
+    print(f"Recovery:            {results['recovery'] * 100:.2f}%")
