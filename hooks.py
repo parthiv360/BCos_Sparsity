@@ -165,4 +165,27 @@ class Hooks:
             raise ValueError(f"Attention module not found for layer {layer}")
         target_module.clear_patch_activation()
         print(f"[*] Cleared patched activation for layer {layer}")
-        
+
+    def save_hook_with_grad(self, layer_name: str)-> Callable:
+        def hook(module: nn.Module, input: Any, output: Any):
+            if isinstance(output, tuple):
+                hidden_state = output[0]
+            else:
+                hidden_state = output
+
+            hidden_state.retain_grad()
+            self.activations[layer_name] = hidden_state
+
+            if isinstance(output, tuple):
+                return (hidden_state,) + output[1:]
+
+            return hidden_state
+
+        return hook
+
+    def register_save_hook_with_grad(self, target_module: nn.Module, hook_name: str):
+        if target_module is None:
+            raise ValueError(f"Target module not found for hook: {hook_name}")
+        handle = target_module.register_forward_hook(self.save_hook_with_grad(layer_name=hook_name))
+        self.hook_handles.append(handle)
+        print(f"[*] Save hook with grad registered: {hook_name}")
