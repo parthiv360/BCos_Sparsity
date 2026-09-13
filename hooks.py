@@ -190,6 +190,7 @@ class Hooks:
         self.hook_handles.append(handle)
         print(f"[*] Save hook with grad registered: {hook_name}")
 
+    # For Path Patching
     def receiver_pre_hook(self, a_orig: torch.Tensor, a_new : torch.Tensor)->Callable:
         def pre_hook(module: nn.Module, input: Any):
             hidden_state = input[0]
@@ -202,4 +203,34 @@ class Hooks:
         handle = receiver_module.register_forward_pre_hook(self.receiver_pre_hook(a_orig, a_new))
         self.hook_handles.append(handle)
         print(f"[*] Path patch hook registered on receiver: {hook_name}")
-        
+
+    def save_c_proj_pre_hook(self, hook_name:str)-> Callable:
+        def pre_hook(module: nn.Module, input:Any):
+            self.activations[hook_name]= input[0].detach()
+        return pre_hook
+
+    def register_save_c_proj_hook(self, target_module: nn.Module, hook_name: str):
+        handle = target_module.register_forward_pre_hook(self.save_c_proj_pre_hook(hook_name))
+        self.hook_handles.append(handle)
+
+    def patch_qkv_hook(self, delta_res_stream: torch.Tensor, receiver_head: int, num_head:int, head_dim:int)->Callable:
+        def hook(module:nn.Module, input: Any, output: Any):
+            # Delta therefore no bias remains
+            delta_qkv = torch.matmul(delta_res_stream,module.weight)
+            batch,seq,_ = output.shape
+            out_reshaped = output.view(batch,seq,3,num_head,head_dim).clone()
+            delta_reshaped = delta_qkv.view(batch,seq,3,num_head,head_dim)
+            out_reshaped[:,:,:,receiver_head,:]+= delta_reshaped[:,:,:,receiver_head,:]
+            return out_reshaped.view(batch,seq, -1)
+
+        return hook
+
+    def register_patch_qkv_hook(self, target_module: nn.Module, 
+                                delta_res_stream: torch.Tensor, 
+                                receiver_head:int,
+                                num_head:int,
+                                head_dim:int,
+                                hook_name:str="patch_qkv"):
+        handle = target_module.register_forward_hook(self.patch_qkv_hook(delta_res_stream,receiver_head,num_head,head_dim))
+        self.hook_handles.append(handle)
+

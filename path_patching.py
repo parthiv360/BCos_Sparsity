@@ -69,6 +69,73 @@ class PathPatching:
             "recovery": recovery
         }
 
+    def evaluate_head_patch(self, 
+                            sender_layer:int,
+                            sender_head:int,
+                            receiver_layer:int,
+                            receiver_head:int,
+                            clean_prompt: str,
+                            corrupted_prompt: str,
+                            target_correct:str,
+                            target_incorrect:str):
+        print("Calculating Baseline...")
+        clean_baseline = get_logit_diff(self.model,self.tokenizer,clean_prompt,target_correct,target_incorrect,self.device)
+        corrupted_baseline = get_logit_diff(self.model, self.tokenizer, corrupted_prompt, target_correct,target_incorrect,self.device)
+
+        input_new = self.tokenizer(clean_prompt, return_tensors ='pt').to(self.device)
+        input_orig = self.tokenizer(corrupted_prompt, return_tensors ='pt').to(self.device)
+
+        num_heads = self.model.config.num_attention_heads
+        d_model = self.model.config.hidden_size
+        head_dim = d_model // num_heads
+
+        sender_c_proj = self.model.transformer.h[sender_layer].attn.c_proj
+        receiver_c_attn = self.model.transformer.h[receiver_layer].attn.c_attn
+
+        # Step1
+        self.hooks.register_save_c_proj_hook(sender_c_proj, hook_name="sender_clean")
+        with torch.no_grad():
+            self.model(**input_new)
+        c_proj_clean = self.hooks.activations["sender_clean"].clone()
+        self.hooks.remove_hooks()
+
+        # Step2
+        self.hooks.register_save_c_proj_hook(sender_c_proj,hook_name="sender_corrupt")
+        with torch.no_grad():
+            self.model(**input_orig)
+        c_proj_corrupt = self.hooks.activations["sender_corrupt"].clone()
+        self.hooks.remove_hooks()
+
+        # Step3
+        batch, seq, _ = c_proj_clean.shape
+        diff = (c_proj_clean - c_proj_corrupt).view(batch,seq,num_heads,head_dim)
+
+        head_diff = torch.zeros_like(diff)
+        head_diff[:,:,sender_head,:] = diff[:,:,sender_head,:]
+        head_diff_flat = head_diff.view(batch,seq,d_model)
+        delta_res_stream = torch.matmul(head_diff_flat, sender_c_proj.weight)
+
+        # Step4
+        self.hooks.register_patch_qkv_hook(
+            target_module=receiver_c_attn,
+            delta_res_stream=delta_res_stream,
+            receiver_head=receiver_head,
+            num_head=num_heads,
+            head_dim=head_dim
+        )
+
+        patched_diff = get_logit_diff(self.model, self.tokenizer,corrupted_prompt,target_correct,target_incorrect,self.device)
+        self.hooks.remove_hooks()
+
+        recovery = (patched_diff-corrupted_baseline)/(clean_baseline-corrupted_baseline)
+
+        return {
+            "clean_baseline":clean_baseline,
+            "corrupted_baseline":corrupted_baseline,
+            "patched_diff": patched_diff,
+            "recovery": recovery
+        }
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint",
@@ -84,10 +151,14 @@ if __name__ == "__main__":
 
     path_patching = PathPatching(args.checkpoint)
 
-    results = path_patching.evaluate_path(
-        8,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
-    )
+    # results = path_patching.evaluate_path(
+    #     8,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+    # )
 
+    results = path_patching.evaluate_head_patch(
+        2,4,9,1,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+    )
+    
     print(f"Path Patching result:")
     print("="*50)
     print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
