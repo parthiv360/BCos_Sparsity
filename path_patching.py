@@ -156,9 +156,9 @@ if __name__ == "__main__":
     # )
 
     results = path_patching.evaluate_head_patch(
-        2,4,9,1,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+        8,6,9,10,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     )
-    
+
     print(f"Path Patching result:")
     print("="*50)
     print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
