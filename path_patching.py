@@ -156,7 +156,7 @@ if __name__ == "__main__":
     # )
 
     results = path_patching.evaluate_head_patch(
-        8,6,9,10,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+        7,9,9,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     )
 
     print(f"Path Patching result:")
