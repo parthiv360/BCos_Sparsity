@@ -155,13 +155,51 @@ if __name__ == "__main__":
     #     8,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     # )
 
-    results = path_patching.evaluate_head_patch(
-        7,9,9,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
-    )
+    # results = path_patching.evaluate_head_patch(
+    #     7,9,9,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+    # )
 
-    print(f"Path Patching result:")
-    print("="*50)
-    print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
-    print(f"Corrupted Baseline:  {results['corrupted_baseline']:.4f}")
-    print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
-    print(f"Recovery:            {results['recovery'] * 100:.2f}%")
+    # print(f"Path Patching result:")
+    # print("="*50)
+    # print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
+    # print(f"Corrupted Baseline:  {results['corrupted_baseline']:.4f}")
+    # print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
+    # print(f"Recovery:            {results['recovery'] * 100:.2f}%")
+
+    receiver_layer = 9
+    receiver_head =9
+    num_heads = 12
+
+    recovery_mat = np.zeros((receiver_layer,num_heads))
+    imp_edges = []
+
+    print(f"Starting Backwards for Circuit Identification")
+    print(f"Target Receiver: Layer {receiver_layer}, Head {receiver_head}")
+    print(f"==========================================\n")
+
+    for s_layer in range(receiver_layer):
+        for s_head in range(num_heads):
+            results = path_patching.evaluate_head_patch(
+                sender_layer=s_layer,
+                sender_head=s_head,
+                receiver_layer=receiver_layer,
+                receiver_head=receiver_head,
+                clean_prompt=clean_prompt,
+                corrupted_prompt=corrupted_prompt,
+                target_correct=target_correct,
+                target_incorrect=target_incorrect)
+
+            recovery = results['recovery']
+            recovery_mat[s_layer,s_head] = recovery
+
+            if recovery>0.05:
+                print(f"Imp Edge: L{s_layer}H{s_head} --> L{receiver_layer}H{receiver_head}")
+                imp_edges.append((s_layer,s_head))
+
+    print("\nPath Patching Recovery Matrix:")
+    print(np.array2string(
+        recovery_mat,
+        formatter={"float_kind": lambda x: f"{x:.2f}"}
+    ))
+
+    print(f"\nAll important senders to L9H9: {imp_edges}")
