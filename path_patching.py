@@ -5,6 +5,8 @@ from hooks import Hooks
 from transformers import AutoConfig, AutoTokenizer
 from bcos_lm.gpt2 import GPT2LMHeadModel
 from utils import get_logit_diff
+from collections import deque
+
 class PathPatching:
     def __init__(self, checkpoint_path):
         self.checkpoint_path = checkpoint_path
@@ -166,40 +168,56 @@ if __name__ == "__main__":
     # print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
     # print(f"Recovery:            {results['recovery'] * 100:.2f}%")
 
-    receiver_layer = 8
-    receiver_head =6
-    num_heads = 12
+    threshold = 0.05
+    num_heads = path_patching.model.config.num_attention_heads
+    initial_receiver = (9, 9)
+    receivers = deque([initial_receiver])
+    discovered = {initial_receiver}
+    visited_rec = set()
+    circuit_graph = {}
 
-    recovery_mat = np.zeros((receiver_layer,num_heads))
-    imp_edges = []
+    print(f"\nStarting Circuit Discovery ...")
+    print("="*50)
 
-    print(f"Starting Backwards for Circuit Identification")
-    print(f"Target Receiver: Layer {receiver_layer}, Head {receiver_head}")
-    print(f"==========================================\n")
+    # BFS
+    while receivers:
+        cur_rec = receivers.popleft()
+        r_layer, r_head = cur_rec
 
-    for s_layer in range(receiver_layer):
-        for s_head in range(num_heads):
-            results = path_patching.evaluate_head_patch(
-                sender_layer=s_layer,
-                sender_head=s_head,
-                receiver_layer=receiver_layer,
-                receiver_head=receiver_head,
-                clean_prompt=clean_prompt,
-                corrupted_prompt=corrupted_prompt,
-                target_correct=target_correct,
-                target_incorrect=target_incorrect)
+        if cur_rec in visited_rec or r_layer == 0:
+            continue
 
-            recovery = results['recovery']
-            recovery_mat[s_layer,s_head] = recovery
+        visited_rec.add(cur_rec)
+        circuit_graph[cur_rec]= []
 
-            if recovery>0.05:
-                print(f"Imp Edge: L{s_layer}H{s_head} --> L{receiver_layer}H{receiver_head}")
-                imp_edges.append((s_layer,s_head))
+        for s_layer in range(r_layer):
+            for s_head in range(num_heads):
+                result = path_patching.evaluate_head_patch(
+                    sender_layer=s_layer,
+                    sender_head=s_head,
+                    receiver_layer=r_layer,
+                    receiver_head=r_head,
+                    clean_prompt=clean_prompt,
+                    corrupted_prompt=corrupted_prompt,
+                    target_correct=target_correct,
+                    target_incorrect=target_incorrect
+                )
 
-    print("\nPath Patching Recovery Matrix:")
-    print(np.array2string(
-        recovery_mat,
-        formatter={"float_kind": lambda x: f"{x:.2f}"}
-    ))
+                recovery = result['recovery']
 
-    print(f"\nAll important senders to L9H9: {imp_edges}")
+                if recovery > threshold:
+                    circuit_graph[cur_rec].append((s_layer,s_head,recovery))
+
+                    sender = (s_layer, s_head)
+                    if sender not in discovered:
+                        discovered.add(sender)
+                        receivers.append(sender)
+
+    print("\n")
+    print("="*50)
+    print(f"Circuit Identification Completed! Final Circuit:")
+    print("="*50)
+    for receiver, senders in circuit_graph.items():
+        if senders: 
+            sender_strings = [f"L{s[0]}H{s[1]} ({s[2]*100:.1f}%)" for s in senders]
+            print(f"Receiver L{receiver[0]}H{receiver[1]} gets input from: {', '.join(sender_strings)}")
