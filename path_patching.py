@@ -166,8 +166,8 @@ if __name__ == "__main__":
     # print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
     # print(f"Recovery:            {results['recovery'] * 100:.2f}%")
 
-    receiver_layer = 9
-    receiver_head =9
+    receiver_layer = 8
+    receiver_head =6
     num_heads = 12
 
     recovery_mat = np.zeros((receiver_layer,num_heads))
