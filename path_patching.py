@@ -144,10 +144,9 @@ class PathPatching:
             "recovery": recovery
         }
 
-
-def visualize_circuit(circuit_graph, output_filename="ioi_circuit.png"):
+def visualize_circuit(circuit_graph, output_filename="ioi_circuit_clean.png", label_threshold=0.20):
     """
-    Function to create graph visualization for the ioi circuit.
+        Function to create graph visualization for the ioi circuit.
     """
     G = nx.DiGraph()
 
@@ -164,43 +163,46 @@ def visualize_circuit(circuit_graph, output_filename="ioi_circuit.png"):
         print("Graph is empty. Nothing to visualize.")
         return
 
-    pos = {}
-    layer_y_counts = {}
+    plt.figure(figsize=(20, 12))
+    plt.title("Mechanistic Circuit for IOI (Clean Layout)", fontsize=22, pad=20)
+
+    pos = nx.multipartite_layout(G, subset_key="layer", align="vertical")
+
+    for node in pos:
+        pos[node][1] *= 2.5 
+
+    edge_weights = [G[u][v]['weight'] * 6 for u, v in G.edges()]
+
+    nx.draw_networkx_nodes(G, pos, node_size=2800, node_color="#87CEEB", edgecolors="black", linewidths=2.0)
     
-    for node, data in G.nodes(data=True):
-        layer = data['layer']
-        layer_y_counts[layer] = layer_y_counts.get(layer, 0) + 1
-
-    current_y = {layer: 0 for layer in layer_y_counts}
+    nx.draw_networkx_edges(
+        G, pos, 
+        arrowstyle="-|>", arrowsize=18, 
+        width=edge_weights, edge_color="dimgray", 
+        connectionstyle="arc3,rad=0.25", alpha=0.7
+    )
     
-    for node, data in G.nodes(data=True):
-        layer = data['layer']
-        total_in_layer = layer_y_counts[layer]
-        y = current_y[layer] - (total_in_layer - 1) / 2.0
-        pos[node] = (layer, y)
-        current_y[layer] += 1
-
-    edge_weights = [G[u][v]['weight'] * 10 for u, v in G.edges()]
-
-    plt.figure(figsize=(12, 6))
-    plt.title("Mechanistic Circuit for Indirect Object Identification (IOI)", fontsize=16)
-
-    nx.draw_networkx_nodes(G, pos, node_size=2000, node_color="skyblue", edgecolors="black")
-    nx.draw_networkx_edges(G, pos, arrowstyle="->", arrowsize=20, width=edge_weights, edge_color="gray", connectionstyle="arc3,rad=0.1")
-    nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold")
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
     
-    edge_labels = nx.get_edge_attributes(G, 'label')
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, label_pos=0.3)
+    edge_labels = {}
+    for u, v, data in G.edges(data=True):
+        if data['weight'] >= label_threshold:
+            edge_labels[(u, v)] = data['label']
+            
+    nx.draw_networkx_edge_labels(
+        G, pos, 
+        edge_labels=edge_labels, 
+        font_size=10, font_weight="bold", 
+        label_pos=0.3,
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.8) # Adds a white background to text
+    )
 
     plt.axis("off") 
     plt.tight_layout()
     
     plt.savefig(output_filename, dpi=300, bbox_inches='tight')
-    
-    pdf_filename = output_filename.replace(".png", ".pdf")
-    plt.savefig(pdf_filename, bbox_inches='tight')
-    
-    print(f"[*] Visualizations successfully saved to {output_filename} and {pdf_filename}")
+    plt.savefig(output_filename.replace(".png", ".pdf"), bbox_inches='tight')
+    print(f"[*] Clean visualizations saved to {output_filename}")
     plt.close()
 
 if __name__ == "__main__":
@@ -287,6 +289,11 @@ if __name__ == "__main__":
             sender_strings = [f"L{s[0]}H{s[1]} ({s[2]*100:.1f}%)" for s in senders]
             print(f"Receiver L{receiver[0]}H{receiver[1]} gets input from: {', '.join(sender_strings)}")
 
-    output_filename = f"{Path(args.checkpoint).name}.png"
+    checkpoint_path = Path(args.checkpoint)
+    output_directory = Path("ioi_circuit")
+    output_directory.mkdir(parents=True, exist_ok=True)
+    output_filename = str(
+        output_directory / f"{checkpoint_path.parent.name}_{checkpoint_path.name}.png"
+    )
     print("\nGenerating Graph Visualization...")
     visualize_circuit(circuit_graph, output_filename=output_filename)
