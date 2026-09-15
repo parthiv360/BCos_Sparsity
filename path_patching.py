@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 import torch
 import numpy as np
 from hooks import Hooks
@@ -6,6 +7,11 @@ from transformers import AutoConfig, AutoTokenizer
 from bcos_lm.gpt2 import GPT2LMHeadModel
 from utils import get_logit_diff
 from collections import deque
+
+import networkx as nx
+import matplotlib
+matplotlib.use('Agg')  
+import matplotlib.pyplot as plt
 
 class PathPatching:
     def __init__(self, checkpoint_path):
@@ -137,7 +143,66 @@ class PathPatching:
             "patched_diff": patched_diff,
             "recovery": recovery
         }
+
+
+def visualize_circuit(circuit_graph, output_filename="ioi_circuit.png"):
+    """
+    Function to create graph visualization for the ioi circuit.
+    """
+    G = nx.DiGraph()
+
+    for receiver, senders in circuit_graph.items():
+        r_name = f"L{receiver[0]}H{receiver[1]}"
+        G.add_node(r_name, layer=receiver[0])
+        
+        for s_layer, s_head, score in senders:
+            s_name = f"L{s_layer}H{s_head}"
+            G.add_node(s_name, layer=s_layer)
+            G.add_edge(s_name, r_name, weight=score, label=f"{score*100:.0f}%")
+
+    if len(G.nodes) == 0:
+        print("Graph is empty. Nothing to visualize.")
+        return
+
+    pos = {}
+    layer_y_counts = {}
     
+    for node, data in G.nodes(data=True):
+        layer = data['layer']
+        layer_y_counts[layer] = layer_y_counts.get(layer, 0) + 1
+
+    current_y = {layer: 0 for layer in layer_y_counts}
+    
+    for node, data in G.nodes(data=True):
+        layer = data['layer']
+        total_in_layer = layer_y_counts[layer]
+        y = current_y[layer] - (total_in_layer - 1) / 2.0
+        pos[node] = (layer, y)
+        current_y[layer] += 1
+
+    edge_weights = [G[u][v]['weight'] * 10 for u, v in G.edges()]
+
+    plt.figure(figsize=(12, 6))
+    plt.title("Mechanistic Circuit for Indirect Object Identification (IOI)", fontsize=16)
+
+    nx.draw_networkx_nodes(G, pos, node_size=2000, node_color="skyblue", edgecolors="black")
+    nx.draw_networkx_edges(G, pos, arrowstyle="->", arrowsize=20, width=edge_weights, edge_color="gray", connectionstyle="arc3,rad=0.1")
+    nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold")
+    
+    edge_labels = nx.get_edge_attributes(G, 'label')
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, label_pos=0.3)
+
+    plt.axis("off") 
+    plt.tight_layout()
+    
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+    
+    pdf_filename = output_filename.replace(".png", ".pdf")
+    plt.savefig(pdf_filename, bbox_inches='tight')
+    
+    print(f"[*] Visualizations successfully saved to {output_filename} and {pdf_filename}")
+    plt.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint",
@@ -221,3 +286,7 @@ if __name__ == "__main__":
         if senders: 
             sender_strings = [f"L{s[0]}H{s[1]} ({s[2]*100:.1f}%)" for s in senders]
             print(f"Receiver L{receiver[0]}H{receiver[1]} gets input from: {', '.join(sender_strings)}")
+
+    output_filename = f"{Path(args.checkpoint).name}.png"
+    print("\nGenerating Graph Visualization...")
+    visualize_circuit(circuit_graph, output_filename=output_filename)
