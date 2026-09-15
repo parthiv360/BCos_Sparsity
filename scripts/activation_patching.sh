@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_NAME="activation_patching.py"
 CONDA_ENV_NAME="base"  # Use the base environment
 
@@ -17,7 +19,13 @@ echo "Conda Environment: $CONDA_ENV_NAME"
 echo "=========================================="
 
 "$CONDA_PYTHON" -m "$MODULE_NAME" \
-    --checkpoint "vanilla_gpt2_epoch/checkpoint-156250" \
+    --checkpoint "bcos_gpt2/b_1.25/checkpoint-156250" 
+
+"$CONDA_PYTHON" -m "$MODULE_NAME" \
+    --checkpoint "bcos_gpt2/b_1.5/checkpoint-156250" 
+
+"$CONDA_PYTHON" -m "$MODULE_NAME" \
+    --checkpoint "bcos_gpt2/b_2.0/checkpoint-156250" 
 
 echo "=========================================="
 echo "Activation Patching Completed"
