@@ -164,7 +164,7 @@ def visualize_circuit(circuit_graph, output_filename="ioi_circuit_clean.png", la
         return
 
     plt.figure(figsize=(20, 12))
-    plt.title("Mechanistic Circuit for IOI (Clean Layout)", fontsize=22, pad=20)
+    plt.title("Mechanistic Circuit for IOI", fontsize=22, pad=20)
 
     pos = nx.multipartite_layout(G, subset_key="layer", align="vertical")
 
