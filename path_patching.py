@@ -1,10 +1,18 @@
 import argparse
+from pathlib import Path
 import torch
 import numpy as np
 from hooks import Hooks
 from transformers import AutoConfig, AutoTokenizer
 from bcos_lm.gpt2 import GPT2LMHeadModel
 from utils import get_logit_diff
+from collections import deque
+
+import networkx as nx
+import matplotlib
+matplotlib.use('Agg')  
+import matplotlib.pyplot as plt
+
 class PathPatching:
     def __init__(self, checkpoint_path):
         self.checkpoint_path = checkpoint_path
@@ -135,7 +143,68 @@ class PathPatching:
             "patched_diff": patched_diff,
             "recovery": recovery
         }
+
+def visualize_circuit(circuit_graph, output_filename="ioi_circuit_clean.png", label_threshold=0.20):
+    """
+        Function to create graph visualization for the ioi circuit.
+    """
+    G = nx.DiGraph()
+
+    for receiver, senders in circuit_graph.items():
+        r_name = f"L{receiver[0]}H{receiver[1]}"
+        G.add_node(r_name, layer=receiver[0])
+        
+        for s_layer, s_head, score in senders:
+            s_name = f"L{s_layer}H{s_head}"
+            G.add_node(s_name, layer=s_layer)
+            G.add_edge(s_name, r_name, weight=score, label=f"{score*100:.0f}%")
+
+    if len(G.nodes) == 0:
+        print("Graph is empty. Nothing to visualize.")
+        return
+
+    plt.figure(figsize=(20, 12))
+    plt.title("Mechanistic Circuit for IOI", fontsize=22, pad=20)
+
+    pos = nx.multipartite_layout(G, subset_key="layer", align="vertical")
+
+    for node in pos:
+        pos[node][1] *= 2.5 
+
+    edge_weights = [G[u][v]['weight'] * 6 for u, v in G.edges()]
+
+    nx.draw_networkx_nodes(G, pos, node_size=2800, node_color="#87CEEB", edgecolors="black", linewidths=2.0)
     
+    nx.draw_networkx_edges(
+        G, pos, 
+        arrowstyle="-|>", arrowsize=18, 
+        width=edge_weights, edge_color="dimgray", 
+        connectionstyle="arc3,rad=0.25", alpha=0.7
+    )
+    
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
+    
+    edge_labels = {}
+    for u, v, data in G.edges(data=True):
+        if data['weight'] >= label_threshold:
+            edge_labels[(u, v)] = data['label']
+            
+    nx.draw_networkx_edge_labels(
+        G, pos, 
+        edge_labels=edge_labels, 
+        font_size=10, font_weight="bold", 
+        label_pos=0.3,
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.8) # Adds a white background to text
+    )
+
+    plt.axis("off") 
+    plt.tight_layout()
+    
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(output_filename.replace(".png", ".pdf"), bbox_inches='tight')
+    print(f"[*] Clean visualizations saved to {output_filename}")
+    plt.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint",
@@ -155,13 +224,76 @@ if __name__ == "__main__":
     #     8,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
     # )
 
-    results = path_patching.evaluate_head_patch(
-        7,9,9,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
-    )
+    # results = path_patching.evaluate_head_patch(
+    #     7,9,9,9,clean_prompt,corrupted_prompt,target_correct,target_incorrect
+    # )
 
-    print(f"Path Patching result:")
+    # print(f"Path Patching result:")
+    # print("="*50)
+    # print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
+    # print(f"Corrupted Baseline:  {results['corrupted_baseline']:.4f}")
+    # print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
+    # print(f"Recovery:            {results['recovery'] * 100:.2f}%")
+
+    threshold = 0.05
+    num_heads = path_patching.model.config.num_attention_heads
+    initial_receiver = (9, 9)
+    receivers = deque([initial_receiver])
+    discovered = {initial_receiver}
+    visited_rec = set()
+    circuit_graph = {}
+
+    print(f"\nStarting Circuit Discovery ...")
     print("="*50)
-    print(f"Clean Baseline:      {results['clean_baseline']:.4f}")
-    print(f"Corrupted Baseline:  {results['corrupted_baseline']:.4f}")
-    print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
-    print(f"Recovery:            {results['recovery'] * 100:.2f}%")
+
+    # BFS
+    while receivers:
+        cur_rec = receivers.popleft()
+        r_layer, r_head = cur_rec
+
+        if cur_rec in visited_rec or r_layer == 0:
+            continue
+
+        visited_rec.add(cur_rec)
+        circuit_graph[cur_rec]= []
+
+        for s_layer in range(r_layer):
+            for s_head in range(num_heads):
+                result = path_patching.evaluate_head_patch(
+                    sender_layer=s_layer,
+                    sender_head=s_head,
+                    receiver_layer=r_layer,
+                    receiver_head=r_head,
+                    clean_prompt=clean_prompt,
+                    corrupted_prompt=corrupted_prompt,
+                    target_correct=target_correct,
+                    target_incorrect=target_incorrect
+                )
+
+                recovery = result['recovery']
+
+                if recovery > threshold:
+                    circuit_graph[cur_rec].append((s_layer,s_head,recovery))
+
+                    sender = (s_layer, s_head)
+                    if sender not in discovered:
+                        discovered.add(sender)
+                        receivers.append(sender)
+
+    print("\n")
+    print("="*50)
+    print(f"Circuit Identification Completed! Final Circuit:")
+    print("="*50)
+    for receiver, senders in circuit_graph.items():
+        if senders: 
+            sender_strings = [f"L{s[0]}H{s[1]} ({s[2]*100:.1f}%)" for s in senders]
+            print(f"Receiver L{receiver[0]}H{receiver[1]} gets input from: {', '.join(sender_strings)}")
+
+    checkpoint_path = Path(args.checkpoint)
+    output_directory = Path("ioi_circuit")
+    output_directory.mkdir(parents=True, exist_ok=True)
+    output_filename = str(
+        output_directory / f"{checkpoint_path.parent.name}_{checkpoint_path.name}.png"
+    )
+    print("\nGenerating Graph Visualization...")
+    visualize_circuit(circuit_graph, output_filename=output_filename)
