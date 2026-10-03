@@ -19,7 +19,7 @@ echo "=========================================="
 
 
 "$CONDA_PYTHON" -m "$MODULE_NAME" \
-    --checkpoint "vanilla_gpt2_epoch/checkpoint-156250"
+    --checkpoint "bcos_gpt2/b_2.0/checkpoint-156250"
 
 echo "=========================================="
 echo "Path Patching Completed"
