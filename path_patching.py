@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # print(f"Patched Logit Diff:  {results['patched_diff']:.4f}")
     # print(f"Recovery:            {results['recovery'] * 100:.2f}%")
 
-    threshold = 0.1
+    threshold = 0.2
     num_heads = path_patching.model.config.num_attention_heads
     initial_receiver = (9, 9)
     receivers = deque([initial_receiver])
