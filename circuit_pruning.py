@@ -134,16 +134,17 @@ class CircuitPruner:
 
         edge_scores = {}
 
+        name_mover_heads = [(9,7),(9,9),(10,0)] #obtained from activation patching experiment
+
         all_edges = [(sender_layer, sender_head, receiver_layer, receiver_head)
-                     for receiver_layer in range(1, self.num_layers)
-                     for receiver_head in range(self.num_heads)
+                     for (receiver_layer, receiver_head) in name_mover_heads
                      for sender_layer in range(receiver_layer)
                      for sender_head in range(self.num_heads)]
 
         for edge in tqdm(all_edges, desc="Evaluating Edges"):
             patched_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, [edge], precomputed_deltas)
             recovery = (patched_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
-            edge_scores[edge] = recovery.item()
+            edge_scores[edge] = recovery
 
         sorted_edges = sorted(edge_scores.items(), key=lambda x: x[1], reverse=True)
         active_edges = [edge for edge, score in sorted_edges if abs(score) > 0.01]
