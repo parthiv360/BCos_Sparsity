@@ -162,7 +162,14 @@ class CircuitPruner:
                 active_edges_set.add(edge)
 
         final_circuit = list(active_edges_set)
+
+        # Cross Verify the scores
+        final_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, final_circuit, precomputed_deltas)
+        recovery = (final_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
+        print(f"Final Recovery Score: {recovery:.4f} (Target: {threshold})")
         print(f"Pruning Completed. Total edges retained: {len(final_circuit)}.")
+
+
 
         circuit = {}
         for sender_layer, sender_head, receiver_layer, receiver_head in final_circuit:
