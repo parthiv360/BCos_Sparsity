@@ -127,19 +127,27 @@ class CircuitPruner:
         clean_baseline = get_logit_diff(self.model, self.tokenizer, clean_prompt, target_correct, target_incorrect, device=self.device)
         corrupted_baseline = get_logit_diff(self.model, self.tokenizer, corrupted_prompt, target_correct, target_incorrect, device=self.device)
 
-        target_diff = corrupted_baseline + threshold * (clean_baseline - corrupted_baseline)
+        print(f"Clean Baseline: {clean_baseline:.4f}, Corrupted Baseline: {corrupted_baseline:.4f}")
 
         print("Precomputing Delta Contributions ...")
         precomputed_deltas = self.precompute_delta(clean_prompt, corrupted_prompt)
 
         edge_scores = {}
 
-        name_mover_heads = [(9,7),(9,9),(10,0)] #obtained from activation patching experiment
+        # name_mover_heads = [(9,7),(9,9),(10,0)] #obtained from activation patching experiment
 
         all_edges = [(sender_layer, sender_head, receiver_layer, receiver_head)
-                     for (receiver_layer, receiver_head) in name_mover_heads
+                     for receiver_layer in range(self.num_layers)
+                     for receiver_head in range(self.num_heads)
                      for sender_layer in range(receiver_layer)
                      for sender_head in range(self.num_heads)]
+
+        print("Evaluating complete circuit ...")
+        full_circuit_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, all_edges, precomputed_deltas)
+        full_circuit_recovery = (full_circuit_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
+        print(f"Full Circuit Recovery Score: {full_circuit_recovery:.4f}")
+
+        target_diff = corrupted_baseline + threshold * (full_circuit_diff - corrupted_baseline)
 
         for edge in tqdm(all_edges, desc="Evaluating Edges"):
             patched_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, [edge], precomputed_deltas)
@@ -168,8 +176,6 @@ class CircuitPruner:
         recovery = (final_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
         print(f"Final Recovery Score: {recovery:.4f} (Target: {threshold})")
         print(f"Pruning Completed. Total edges retained: {len(final_circuit)}.")
-
-
 
         circuit = {}
         for sender_layer, sender_head, receiver_layer, receiver_head in final_circuit:
