@@ -149,20 +149,16 @@ class CircuitPruner:
 
         target_diff = corrupted_baseline + threshold * (full_circuit_diff - corrupted_baseline)
 
-        for edge in tqdm(all_edges, desc="Evaluating Edges"):
-            patched_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, [edge], precomputed_deltas)
-            recovery = (patched_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
-            edge_scores[edge] = recovery
+        edge_norms = {}
+        for edge in all_edges:
+            sender_layer, sender_head, receiver_layer, receiver_head = edge
+            edge_norms[edge]= precomputed_deltas[edge].norm().item()
 
-        sorted_edges = sorted(edge_scores.items(), key=lambda x: x[1], reverse=True)
-        active_edges = [edge for edge, score in sorted_edges if abs(score) > 0.01]
+        candidate_to_prune = sorted(all_edges, key=lambda e: edge_norms[e])
 
-        print("Starting Pruning Process ...")
-        active_edges_set = set(active_edges)
+        active_edges_set = set(all_edges)
 
-        candidate_to_prune = sorted(active_edges, key=lambda e:abs(edge_scores[e]))
-
-        for edge in tqdm(candidate_to_prune, desc="Pruning Edges"):
+        for edge in tqdm(candidate_to_prune, desc="Evaluating Edges"):
             active_edges_set.remove(edge)
             current_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, list(active_edges_set), precomputed_deltas)
 
