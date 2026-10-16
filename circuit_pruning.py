@@ -152,7 +152,7 @@ class CircuitPruner:
         edge_norms = {}
         for edge in all_edges:
             sender_layer, sender_head, receiver_layer, receiver_head = edge
-            edge_norms[edge]= precomputed_deltas[edge].norm().item()
+            edge_norms[edge]= precomputed_deltas[(sender_layer, sender_head)].norm().item()
 
         candidate_to_prune = sorted(all_edges, key=lambda e: edge_norms[e])
 
