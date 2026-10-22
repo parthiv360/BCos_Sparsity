@@ -182,7 +182,7 @@ class CircuitPruner:
         for sender_layer, sender_head, receiver_layer, receiver_head in final_circuit:
             if (receiver_layer, receiver_head) not in circuit:
                 circuit[(receiver_layer, receiver_head)] = []
-            circuit[(receiver_layer, receiver_head)].append((sender_layer, sender_head, edge_weight[(sender_layer, sender_head, receiver_layer, receiver_head)]))
+            circuit[(receiver_layer, receiver_head)].append((sender_layer, sender_head, 1.0))
         return circuit
 
 def visualize_circuit(circuit:dict, output="ioi_pruned_circuit.png"):
