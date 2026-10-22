@@ -152,6 +152,7 @@ class CircuitPruner:
         edge_norms = {}
         for edge in all_edges:
             sender_layer, sender_head, receiver_layer, receiver_head = edge
+            edge_weight = precomputed_deltas[(sender_layer, sender_head)]
             edge_norms[edge]= precomputed_deltas[(sender_layer, sender_head)].norm().item()
 
         candidate_to_prune = sorted(all_edges, key=lambda e: edge_norms[e])
@@ -162,7 +163,11 @@ class CircuitPruner:
             active_edges_set.remove(edge)
             current_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, list(active_edges_set), precomputed_deltas)
 
-            if current_diff < target_diff:
+            current_gain = current_diff - corrupted_baseline
+            full_gain = full_circuit_diff - corrupted_baseline
+
+            current_recovery = current_gain / (full_gain + 1e-8)
+            if current_recovery < threshold:
                 active_edges_set.add(edge)
 
         final_circuit = list(active_edges_set)
@@ -177,7 +182,7 @@ class CircuitPruner:
         for sender_layer, sender_head, receiver_layer, receiver_head in final_circuit:
             if (receiver_layer, receiver_head) not in circuit:
                 circuit[(receiver_layer, receiver_head)] = []
-            circuit[(receiver_layer, receiver_head)].append((sender_layer, sender_head, edge_norms[(sender_layer, sender_head, receiver_layer, receiver_head)]))
+            circuit[(receiver_layer, receiver_head)].append((sender_layer, sender_head, edge_weight[(sender_layer, sender_head, receiver_layer, receiver_head)]))
         return circuit
 
 def visualize_circuit(circuit:dict, output="ioi_pruned_circuit.png"):
