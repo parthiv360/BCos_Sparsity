@@ -183,9 +183,9 @@ class CircuitPruner:
             if (receiver_layer, receiver_head) not in circuit:
                 circuit[(receiver_layer, receiver_head)] = []
             circuit[(receiver_layer, receiver_head)].append((sender_layer, sender_head, 1.0))
-        return circuit
+        return circuit, recovery
 
-def visualize_circuit(circuit:dict, output="ioi_pruned_circuit.png"):
+def visualize_circuit(circuit:dict, recovery: float, output="ioi_pruned_circuit.png"):
     """
     Visualize the pruned circuit.
     """
@@ -207,6 +207,10 @@ def visualize_circuit(circuit:dict, output="ioi_pruned_circuit.png"):
 
     plt.figure(figsize=(20,12))
     plt.title("Pruned IoI Circuit", fontsize=20, pad=20)
+
+    if recovery is not None:
+        plt.figtext(0.5, 0.88, f"Final Circuit Recovery: {recovery * 100:.2f}%", 
+                    ha="center", fontsize=16, color="darkred", weight="bold")
     pos = nx.multipartite_layout(G, subset_key="layer", align="vertical")
     for node in pos:
         pos[node][1]*= 2.5
@@ -238,10 +242,10 @@ if __name__ == "__main__":
 
     pruner = CircuitPruner(args.checkpoint_path)
 
-    final_circuit = pruner.prune(clean_prompt, corrupted_prompt, target_correct, target_incorrect, args.threshold)
+    final_circuit, recovery = pruner.prune(clean_prompt, corrupted_prompt, target_correct, target_incorrect, args.threshold)
     checkpoint_path = Path(args.checkpoint_path)
     output_dir = Path("pruned_circuit")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_filename = str(output_dir / f"{checkpoint_path.parent.name}_{checkpoint_path.name}_pruned.png")
 
-    visualize_circuit(final_circuit, output=output_filename)
+    visualize_circuit(final_circuit, recovery, output=output_filename)
