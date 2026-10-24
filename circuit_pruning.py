@@ -159,21 +159,15 @@ class CircuitPruner:
 
         active_edges_set = set(all_edges)
 
-        allowed_margin = abs(full_circuit_diff - corrupted_baseline) * (1.0 - threshold)
-
         for edge in tqdm(candidate_to_prune, desc="Evaluating Edges"):
             active_edges_set.remove(edge)
             current_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, list(active_edges_set), precomputed_deltas)
 
-            # current_gain = current_diff - corrupted_baseline
-            # full_gain = full_circuit_diff - corrupted_baseline
+            current_gain = current_diff - corrupted_baseline
+            full_gain = full_circuit_diff - corrupted_baseline
 
-            deviation = abs(current_diff - full_circuit_diff)
-
-            # current_recovery = current_gain / (full_gain + 1e-8)
-            # if current_recovery < threshold:
-            #     active_edges_set.add(edge)
-            if deviation > allowed_margin:
+            current_recovery = current_gain / (full_gain + 1e-8)
+            if current_recovery < threshold:
                 active_edges_set.add(edge)
 
         final_circuit = list(active_edges_set)
