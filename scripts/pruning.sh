@@ -18,11 +18,11 @@ echo "Script: $SCRIPT_NAME"
 echo "Conda Environment: $CONDA_ENV_NAME"
 echo "=========================================="
 
-"$CONDA_PYTHON" -m "$MODULE_NAME" \
-    --checkpoint "vanilla_gpt2_epoch/checkpoint-156250" \
-
 # "$CONDA_PYTHON" -m "$MODULE_NAME" \
-#     --checkpoint "bcos_gpt2_epoch/checkpoint-156250" \
+#     --checkpoint "vanilla_gpt2_epoch/checkpoint-156250" \
+
+"$CONDA_PYTHON" -m "$MODULE_NAME" \
+    --checkpoint "bcos_gpt2_epoch/checkpoint-156250" \
 
 # "$CONDA_PYTHON" -m "$MODULE_NAME" \
 #     --checkpoint "bcos_gpt2/b_1.25/checkpoint-156250" \
