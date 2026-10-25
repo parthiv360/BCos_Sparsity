@@ -29,7 +29,7 @@ class Hooks:
             raise ValueError(f"Target module not found for hook: {hook_name}")
         handle = target_module.register_forward_hook(self._save_hook(layer_name=hook_name))
         self.hook_handles.append(handle)
-        print(f"[*] Save hook registered: {hook_name}")
+        # print(f"[*] Save hook registered: {hook_name}")
 
     def _patch_hook(self, patch_tensor: torch.Tensor) -> Callable:
         """
@@ -56,7 +56,7 @@ class Hooks:
 
         handle = target_module.register_forward_hook(self._patch_hook(patch_tensor))
         self.hook_handles.append(handle)
-        print(f"[*] Patch hook registered: {hook_name}")
+        # print(f"[*] Patch hook registered: {hook_name}")
 
     def register_all_blocks(self):
         """
@@ -84,7 +84,7 @@ class Hooks:
         Clear the activations cache keeping the registered hooks intact.
         """
         self.activations.clear()
-        print("[*] Activations cache cleared.")
+        # print("[*] Activations cache cleared.")
     
     def remove_hooks(self):
         """
@@ -98,8 +98,8 @@ class Hooks:
         self.hook_handles.clear()
         self.activations.clear()
 
-        if total > 0:
-            print(f"[*] Removed {total} hooks and activations.")
+        # if total > 0:
+        #     print(f"[*] Removed {total} hooks and activations.")
 
     def print_activation_cache(self):
         """
@@ -125,7 +125,7 @@ class Hooks:
         if target_module is None:
             raise ValueError(f"Attention module not found for layer {layer}")
         target_module.save_head_activation()
-        print(f"[*] Save head activation hook registered for layer {layer}")
+        # print(f"[*] Save head activation hook registered for layer {layer}")
 
     def get_head_activation(self, layer):
         """
@@ -144,7 +144,7 @@ class Hooks:
         if target_module is None:
             raise ValueError(f"Attention module not found for layer {layer}")
         target_module.clear_patch_head()
-        print(f"[*] Cleared head activation for layer {layer}")
+        # print(f"[*] Cleared head activation for layer {layer}")
 
     def patch_head_activation(self, layer, head_idx, activation):
         """
@@ -154,7 +154,7 @@ class Hooks:
         if target_module is None:
             raise ValueError(f"Attention module not found for layer {layer}")
         target_module.set_patch_activation(head_idx, activation)
-        print(f"[*] Patched head activation for layer {layer}, head {head_idx}")
+        # print(f"[*] Patched head activation for layer {layer}, head {head_idx}")
 
     def clear_patch_activation(self, layer):
         """
@@ -164,7 +164,7 @@ class Hooks:
         if target_module is None:
             raise ValueError(f"Attention module not found for layer {layer}")
         target_module.clear_patch_activation()
-        print(f"[*] Cleared patched activation for layer {layer}")
+        # print(f"[*] Cleared patched activation for layer {layer}")
 
     def save_hook_with_grad(self, layer_name: str)-> Callable:
         def hook(module: nn.Module, input: Any, output: Any):
@@ -188,7 +188,7 @@ class Hooks:
             raise ValueError(f"Target module not found for hook: {hook_name}")
         handle = target_module.register_forward_hook(self.save_hook_with_grad(layer_name=hook_name))
         self.hook_handles.append(handle)
-        print(f"[*] Save hook with grad registered: {hook_name}")
+        # print(f"[*] Save hook with grad registered: {hook_name}")
 
     # For Path Patching
     def receiver_pre_hook(self, a_orig: torch.Tensor, a_new : torch.Tensor)->Callable:
@@ -202,7 +202,7 @@ class Hooks:
     def register_path_patch_hook(self, receiver_module: nn.Module, a_orig: torch.Tensor, a_new: torch.Tensor, hook_name: str = "path_patch"):
         handle = receiver_module.register_forward_pre_hook(self.receiver_pre_hook(a_orig, a_new))
         self.hook_handles.append(handle)
-        print(f"[*] Path patch hook registered on receiver: {hook_name}")
+        # print(f"[*] Path patch hook registered on receiver: {hook_name}")
 
     def save_c_proj_pre_hook(self, hook_name:str)-> Callable:
         def pre_hook(module: nn.Module, input:Any):
