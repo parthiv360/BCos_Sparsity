@@ -144,6 +144,7 @@ class CircuitPruner:
 
         print("Evaluating complete circuit ...")
         full_circuit_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, all_edges, precomputed_deltas)
+        print(f"Patch Difference: {full_circuit_diff:.4f}")
         full_circuit_recovery = (full_circuit_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
         print(f"Full Circuit Recovery Score: {full_circuit_recovery:.4f}")
 
@@ -174,6 +175,7 @@ class CircuitPruner:
 
         # Cross Verify the scores
         final_diff = self.evaluate_circuit(corrupted_prompt, target_correct, target_incorrect, final_circuit, precomputed_deltas)
+        print(f"Final Patch Difference: {final_diff:.4f}")
         recovery = (final_diff - corrupted_baseline) / (clean_baseline - corrupted_baseline + 1e-8)
         print(f"Final Recovery Score: {recovery:.4f} (Target: {threshold})")
         print(f"Pruning Completed. Total edges retained: {len(final_circuit)}.")
