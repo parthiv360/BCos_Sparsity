@@ -246,4 +246,13 @@ if __name__ == "__main__":
 
     ranked_edges = results["ranked_edges"]
     edge_scores = results["edge_scores"]
+    signed_edge_scores = results["signed_edge_scores"]
+
+    print("Top 20 edges by score:")
+    for edge, score in ranked_edges[:20]:
+        sl, sh, rl, rh = edge
+        print(f"L{sl}H{sh} -> L{rl}H{rh}: Score = {signed_edge_scores[edge]:.6f}")
+        
+        
+    
 
