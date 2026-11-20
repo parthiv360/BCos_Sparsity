@@ -205,6 +205,7 @@ class EdgeAttributionPatching:
         print("Capturing receiver gradients...")
         corrupted_baseline, receiver_gradients = self.capture_receiver_gradients(corrupted_prompt, correct_id, incorrect_id)
 
+        print
         print("Corrupted baseline logit difference:", corrupted_baseline)
 
         print("Computing edge scores...")
@@ -252,7 +253,7 @@ if __name__ == "__main__":
     for edge, score in ranked_edges[:20]:
         sl, sh, rl, rh = edge
         print(f"L{sl}H{sh} -> L{rl}H{rh}: Score = {signed_edge_scores[edge]:.6f}")
-        
+
         
     
 
