@@ -183,6 +183,31 @@ class EdgeAttributionPatching:
 
         return edge_scores, signed_edge_scores
 
+    def get_stats(self, clean_prompt, corrupted_prompt, correct, incorrect):
+        self.model.eval()
+        correct_id = self.get_target_id(correct)
+        incorrect_id = self.get_target_id(incorrect)
+
+        clean_tokens = self.tokenize(clean_prompt)
+        corrupted_tokens = self.tokenize(corrupted_prompt)
+
+        assert clean_tokens['input_ids'].shape == corrupted_tokens['input_ids'].shape, "Clean and corrupted prompts must have the same shape."
+
+        with torch.no_grad():
+            clean_output = self.model(**clean_tokens, use_cache=False)
+            clean_logit_diff = self.logit_diff(clean_output.logits, correct_id, incorrect_id).item()
+
+        clean_inputs = self.capture_c_proj_inputs(clean_prompt)
+        corrupted_inputs = self.capture_c_proj_inputs(corrupted_prompt)
+        sender_deltas = self.compute_sender_deltas(clean_inputs, corrupted_inputs)
+        corrupted_logit_diff, receiver_gradients = self.capture_receiver_gradients(corrupted_prompt, correct_id, incorrect_id)
+
+        gap = clean_logit_diff - corrupted_logit_diff
+        print(f"Clean logit difference: {clean_logit_diff:.6f}")
+        print(f"Corrupted logit difference: {corrupted_logit_diff:.6f}")
+        print(f"Gap: {gap:.6f}")
+
+
     def run(self, clean_prompt, corrupted_prompt, correct, incorrect):
         print("TOkenizing prompts...")
         correct_id = self.get_target_id(correct)
@@ -242,6 +267,8 @@ if __name__ == "__main__":
     corrupted_prompt = "When John and Mary went to the store, Mary gave a bottle of milk to"
     target_correct = "Mary"
     target_incorrect = "John"
+
+    eap.get_stats(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
 
     results = eap.run(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
 
