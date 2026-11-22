@@ -4,7 +4,7 @@ from bcos_lm.gpt2 import GPT2LMHeadModel
 import torch
 from typing import Dict, List, Tuple
 from transformers import AutoConfig, AutoTokenizer
-from Collections import defaultdict
+from collections import defaultdict
 
 class EdgeAttributionPatching:
     def __init__(self,model,tokenizer,device=None):
