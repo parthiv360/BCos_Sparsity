@@ -402,7 +402,7 @@ class GPT2Block(nn.Module):
 
         ## bcos
         if hasattr(config, "bcos") and config.bcos and hasattr(config, "b"):
-            norm = norms.NoBias(norms.DetachableLayerNorm)
+            norm = norms.NoBias(norms.Detachable    LayerNorm)
         else:
             norm = nn.LayerNorm
         self.ln_1 = norm(hidden_size, eps=config.layer_norm_epsilon)

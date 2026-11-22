@@ -4,6 +4,7 @@ from bcos_lm.gpt2 import GPT2LMHeadModel
 import torch
 from typing import Dict, List, Tuple
 from transformers import AutoConfig, AutoTokenizer
+from Collections import defaultdict
 
 class EdgeAttributionPatching:
     def __init__(self,model,tokenizer,device=None):
@@ -230,9 +231,6 @@ class EdgeAttributionPatching:
         print("Capturing receiver gradients...")
         corrupted_baseline, receiver_gradients = self.capture_receiver_gradients(corrupted_prompt, correct_id, incorrect_id)
 
-        print
-        print("Corrupted baseline logit difference:", corrupted_baseline)
-
         print("Computing edge scores...")
         edge_scores, signed_edge_scores = self.compute_edge_scores(sender_deltas, receiver_gradients)
 
@@ -245,7 +243,33 @@ class EdgeAttributionPatching:
             "ranked_edges": ranked_edges,
             "corrupted_baseline": corrupted_baseline
         }
-        
+
+def create_prompt_pairs(prompts, answers):
+    assert len(prompts) == len(answers)
+    assert len(prompts) % 2 == 0
+
+    prompt_pairs = []
+
+    for i in range(0, len(prompts), 2):
+
+        clean_prompt = prompts[i]
+        corrupted_prompt = prompts[i + 1]
+
+        correct_clean, incorrect_clean = answers[i]
+        correct_corrupt, incorrect_corrupt = answers[i + 1]
+
+        assert correct_clean == incorrect_corrupt
+        assert incorrect_clean == correct_corrupt
+
+        prompt_pairs.append({
+            "clean": clean_prompt,
+            "corrupted": corrupted_prompt,
+            "correct": correct_clean.strip(),
+            "incorrect": incorrect_clean.strip(),
+        })
+
+    return prompt_pairs
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Edge Attribution Patching")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to the model checkpoint")
@@ -263,23 +287,74 @@ if __name__ == "__main__":
     model.eval()
 
     eap = EdgeAttributionPatching(model, tokenizer, device=device)
-    clean_prompt = "When John and Mary went to the store, John gave a bottle of milk to"
-    corrupted_prompt = "When John and Mary went to the store, Mary gave a bottle of milk to"
-    target_correct = "Mary"
-    target_incorrect = "John"
+    prompts = [
+    "When John and Mary went to the shops, John gave the bag to",
+    "When John and Mary went to the shops, Mary gave the bag to",
+    "When Tom and James went to the park, James gave the ball to",
+    "When Tom and James went to the park, Tom gave the ball to",
+    "When Dan and Sid went to the shops, Sid gave an apple to",
+    "When Dan and Sid went to the shops, Dan gave an apple to",
+    "After Martin and Amy went to the park, Amy gave a drink to",
+    "After Martin and Amy went to the park, Martin gave a drink to",
+    ]
 
-    eap.get_stats(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
+    answers = [
+        (" Mary", " John"),
+        (" John", " Mary"),
+        (" Tom", " James"),
+        (" James", " Tom"),
+        (" Dan", " Sid"),
+        (" Sid", " Dan"),
+        (" Martin", " Amy"),
+        (" Amy", " Martin"),
+    ]
+    
+    prompt_pairs = create_prompt_pairs(prompts, answers)
 
-    results = eap.run(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
+    all_signed_scores = defaultdict(list)
+    all_absolute_scores = defaultdict(list)
 
-    ranked_edges = results["ranked_edges"]
-    edge_scores = results["edge_scores"]
-    signed_edge_scores = results["signed_edge_scores"]
+    prompt_results = []
 
-    print("Top 20 edges by score:")
+    for i,pair in enumerate(prompt_pairs):
+        print(f"\nProcessing prompt pair {i+1}/{len(prompt_pairs)}")
+
+        clean_prompt = pair["clean"]
+        corrupted_prompt = pair["corrupted"]
+        target_correct = pair["correct"]
+        target_incorrect = pair["incorrect"]
+
+        eap.get_stats(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
+        results = eap.run(clean_prompt, corrupted_prompt, target_correct, target_incorrect)
+
+        signed_edge_scores = results["signed_edge_scores"]
+        edge_scores = results["edge_scores"]
+
+        for edge, score in signed_edge_scores.items():
+            all_signed_scores[edge].append(score)
+            all_absolute_scores[edge].append(edge_scores[edge])
+
+        prompt_results.append(results)
+
+    mean_signed_scores = {}
+    mean_absolute_scores = {}
+
+    for edge in all_signed_scores:
+        mean_signed_scores[edge] = sum(all_signed_scores[edge]) / len(all_signed_scores[edge])
+        mean_absolute_scores[edge] = sum(all_absolute_scores[edge]) / len(all_absolute_scores[edge])
+
+    ranked_edges = sorted(mean_absolute_scores.items(), key=lambda x: x[1], reverse=True)
+
+    print("\nTotal edges:", len(ranked_edges))
+    print("\n Top 20 edges by mean absolute score:")
+
     for edge, score in ranked_edges[:20]:
         sl, sh, rl, rh = edge
-        print(f"L{sl}H{sh} -> L{rl}H{rh}: Score = {signed_edge_scores[edge]:.6f}")
+        print(
+            f"L{sl}H{sh} -> L{rl}H{rh}: "
+            f"Mean Abs = {score:.6f}, "
+            f"Mean Signed = {mean_signed_scores[edge]:.6f}"
+        )
 
         
     
