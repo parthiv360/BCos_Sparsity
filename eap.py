@@ -82,6 +82,13 @@ class EdgeAttributionPatching:
         """
         self.receiver_outputs.clear()
         self.model.zero_grad(set_to_none=True)
+        H, hd = self.num_heads, self.head_dim
+        ln_inputs = {}
+
+        def make_ln_hook(layer):
+            def hook(module, inputs):
+                ln_inputs[layer] = inputs[0]
+            return hook
 
         def make_hook(layer):
             def hook(module, inputs, output):
@@ -94,26 +101,38 @@ class EdgeAttributionPatching:
             return hook
 
         for layer in range(self.num_layers):
-            module = self.model.transformer.h[layer].attn.c_attn
-            handle = module.register_forward_hook(make_hook(layer))
-            self.handles.append(handle)
+            block = self.model.transformer.h[layer]
+            self.handles.append(block.attn.c_attn.register_forward_hook(make_hook(layer)))
+            self.handles.append(block.ln_1.register_forward_pre_hook(make_ln_hook(layer)))
 
         try:
             tokens= self.tokenize(prompt)
-            outputs = self.model(**tokens, use_cache=False)
-            logits = outputs.logits
-            loss = self.logit_diff(logits, correct_id, incorrect_id)
-            loss.backward()
+            with torch.enable_grad():
+                outputs = self.model(**tokens, use_cache=False)
+                logits = outputs.logits
+                loss = self.logit_diff(logits, correct_id, incorrect_id)
 
-            gradients = {}
+                layers = list(range(1, self.num_layers))
+                qkv_grads = torch.autograd.grad(loss, [self.receiver_outputs[layer] for layer in layers], retain_graph=True)
+                gradients = {}
 
-            for layer, activation in self.receiver_outputs.items():
-                if activation.grad is None:
-                    raise RuntimeError(f"Gradient for layer {layer} is None. ")
-                gradients[layer] = activation.grad.detach().clone()
+                for layer, grad in zip(layers, qkv_grads):
+                    b,t,_ = grad.shape
+                    grad_newshape = grad.reshape(b,t,3,H,hd)
+                    per_head = []
+                    for head in range(H):
+                        masked = torch.zeros_like(grad_newshape)
+                        masked[:,:, :, head, :] = grad_newshape[:,:, :, head, :]
+                        (g_res,) = torch.autograd.grad(
+                            self.receiver_outputs[layer], ln_inputs[layer],
+                            grad_outputs = masked.reshape(b,t,3*H*hd),
+                            retain_graph=True,
+                        )
+                        per_head.append(g_res.detach())
+                    gradients[layer] = torch.stack(per_head, dim=2) 
+
         finally:
             self.remove_hooks()
-
         return loss.item(),gradients
 
     def compute_sender_deltas(self, clean_inputs, corrupted_inputs):
@@ -156,33 +175,51 @@ class EdgeAttributionPatching:
         edge_scores = {}
         signed_edge_scores = {}
 
-        for receiver_layer in range(self.num_layers):
-            receiver_module = self.model.transformer.h[receiver_layer].attn.c_attn
-            weight = receiver_module.weight
+        # for receiver_layer in range(self.num_layers):
+        #     receiver_module = self.model.transformer.h[receiver_layer].attn.c_attn
+        #     weight = receiver_module.weight
 
-            if weight.shape != (self.d_model, 3*self.d_model):
-                raise ValueError(f"Unexpected weight shape for layer {receiver_layer}: {weight.shape}")
+        #     if weight.shape != (self.d_model, 3*self.d_model):
+        #         raise ValueError(f"Unexpected weight shape for layer {receiver_layer}: {weight.shape}")
 
-            grad = receiver_gradients[receiver_layer]
-            batch, seq_len, _ = grad.shape
+        #     grad = receiver_gradients[receiver_layer]
+        #     batch, seq_len, _ = grad.shape
 
-            grad = grad.reshape(batch,seq_len,3,self.num_heads,self.head_dim) # 3 for Q,K,V
+        #     grad = grad.reshape(batch,seq_len,3,self.num_heads,self.head_dim) # 3 for Q,K,V
 
-            for receiver_head in range(self.num_heads):
-                receiver_grad = grad[:,:, :, receiver_head, :]
+        #     for sender_layer in range(receiver_layer):
+        #         sender_delta = torch.stack(
+        #             [sender_deltas[(sender_layer, sender_head)] for sender_head in range(self.num_heads)]
+        #         )
+        #         delta_qkv = torch.matmul(sender_delta, weight).reshape(
+        #             self.num_heads, batch, seq_len, 3, self.num_heads, self.head_dim
+        #         ).float()
 
-                for sender_layer in range(receiver_layer):
-                    for sender_head in range(self.num_heads):
+        #         attributions = torch.einsum('sbtqhd,btqhd->sh', delta_qkv, grad).cpu().tolist()
+
+        #         for sender_head in range(self.num_heads):
+        #             for receiver_head in range(self.num_heads):
+        #                 edge = (sender_layer, sender_head, receiver_layer, receiver_head)
+        #                 attribution = attributions[sender_head][receiver_head]
+        #                 signed_edge_scores[edge] = attribution
+        #                 edge_scores[edge] = abs(attribution)
+
+        # return edge_scores, signed_edge_scores
+        for receiver_layer in range(1, self.num_layers):
+            g_res = receiver_gradients[receiver_layer].float() 
+            for sender_layer in range(receiver_layer):
+                deltas = torch.stack([sender_deltas[(sender_layer, sender_head)] for sender_head in range(self.num_heads)]).float()
+                scores = torch.einsum('sbtd,bthd->sh', deltas, g_res).cpu().tolist()
+                for sender_head in range(self.num_heads):
+                    for receiver_head in range(self.num_heads):
                         edge = (sender_layer, sender_head, receiver_layer, receiver_head)
-                        delta_res = sender_deltas[(sender_layer, sender_head)] # shape is (batch, seq_len, d_model)
-                        delta_qkv = torch.matmul(delta_res, weight)
-                        delta_qkv = delta_qkv.reshape(batch, seq_len, 3, self.num_heads, self.head_dim)
-                        delta_receiver = delta_qkv[:, :, :, receiver_head, :]
-                        attribution = (delta_receiver.float() * receiver_grad.float()).sum()
-                        signed_edge_scores[edge] = attribution.item()
-                        edge_scores[edge] = abs(attribution.item())
+                        attribution = scores[sender_head][receiver_head]
+                        signed_edge_scores[edge] = attribution
+                        edge_scores[edge] = abs(attribution)
 
         return edge_scores, signed_edge_scores
+
+
 
     def get_stats(self, clean_prompt, corrupted_prompt, correct, incorrect):
         self.model.eval()
