@@ -100,6 +100,7 @@ class EdgeAttributionPatching:
                 self.receiver_outputs[layer] = output
             return hook
 
+        #  The two hooks are needed: one for the attention output, and one for the layer norm input.
         for layer in range(self.num_layers):
             block = self.model.transformer.h[layer]
             self.handles.append(block.attn.c_attn.register_forward_hook(make_hook(layer)))
@@ -117,7 +118,7 @@ class EdgeAttributionPatching:
                 gradients = {}
 
                 for layer, grad in zip(layers, qkv_grads):
-                    b,t,_ = grad.shape
+                    b,t,_ = grad.shape # batch, sequence length, d_model
                     grad_newshape = grad.reshape(b,t,3,H,hd)
                     per_head = []
                     for head in range(H):
@@ -148,6 +149,7 @@ class EdgeAttributionPatching:
             # Shape of clean and corrupted should be the same: (batch_size, sequence_length, d_model)
             assert clean.shape == corrupted.shape, (f"Shape mismatch for layer {layer}: {clean.shape} vs {corrupted.shape}")
 
+            # C_proj is used here because it is the last linear layer in the attention mechanism, and its output is what gets added to the residual stream.
             c_proj = self.model.transformer.h[layer].attn.c_proj
 
             for head in range(self.num_heads):
