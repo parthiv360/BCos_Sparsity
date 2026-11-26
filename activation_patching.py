@@ -148,6 +148,32 @@ class ActivationPatching:
         print(f"Recovery after patching: {recovery:.2f}")
         return recovery
         
+def create_prompt_pairs(prompts, answers):
+    assert len(prompts) == len(answers)
+    assert len(prompts) % 2 == 0
+
+    prompt_pairs = []
+
+    for i in range(0, len(prompts), 2):
+
+        clean_prompt = prompts[i]
+        corrupted_prompt = prompts[i + 1]
+
+        correct_clean, incorrect_clean = answers[i]
+        correct_corrupt, incorrect_corrupt = answers[i + 1]
+
+        assert correct_clean == incorrect_corrupt
+        assert incorrect_clean == correct_corrupt
+
+        prompt_pairs.append({
+            "clean": clean_prompt,
+            "corrupted": corrupted_prompt,
+            "correct": correct_clean.strip(),
+            "incorrect": incorrect_clean.strip(),
+        })
+
+    return prompt_pairs
+
 
 def main():
     # activation_patching = ActivationPatching()
@@ -166,11 +192,29 @@ def main():
 
     args = parser.parse_args()
 
-    clean_prompt = "When John and Mary went to the store, John gave a bottle of milk to"
-    corrupted_prompt = "When John and Mary went to the store, Mary gave a bottle of milk to"
+    prompts = [
+        "When John and Mary went to the shops, John gave the bag to",
+        "When John and Mary went to the shops, Mary gave the bag to",
+        "When Tom and James went to the park, James gave the ball to",
+        "When Tom and James went to the park, Tom gave the ball to",
+        "When Dan and Sid went to the shops, Sid gave an apple to",
+        "When Dan and Sid went to the shops, Dan gave an apple to",
+        "After Martin and Amy went to the park, Amy gave a drink to",
+        "After Martin and Amy went to the park, Martin gave a drink to",
+        ]
+    
+    answers = [
+        (" Mary", " John"),
+        (" John", " Mary"),
+        (" Tom", " James"),
+        (" James", " Tom"),
+        (" Dan", " Sid"),
+        (" Sid", " Dan"),
+        (" Martin", " Amy"),
+        (" Amy", " Martin"),
+    ]
 
-    target_correct = "Mary"
-    target_incorrect = "John"
+    prompt_pairs = create_prompt_pairs(prompts, answers)
 
     activation_patcher = ActivationPatching(args.checkpoint)
     # recoveries = []
@@ -185,22 +229,29 @@ def main():
     #     recoveries.append(recovery)
     # for i, recovery in enumerate(recoveries):
     #     print(f"Recovery for block {i}: {recovery:.2f}")
-    recoveries = []
-    for layer in range(12):
-        layer_recoveries = []
-        for head in range(12):
-            recovery = activation_patcher.head_activation_patching(layer=layer,
-                                                                   head_idx=head,
-                                                                   clean_prompt=clean_prompt,
-                                                                   corrupted_prompt=corrupted_prompt,
-                                                                   target_correct=target_correct,
-                                                                   target_incorrect=target_incorrect)
-            layer_recoveries.append(recovery)
-        recoveries.append(layer_recoveries)
+    all_recoveries = []
+    for i,pair in enumerate(prompt_pairs):
+        print(f"\nProcessing prompt pair {i+1}/{len(prompt_pairs)}")
+
+        recoveries = []
+        for layer in range(12):
+            layer_recoveries = []
+            for head in range(12):
+                recovery = activation_patcher.head_activation_patching(layer=layer,
+                                                                    head_idx=head,
+                                                                    clean_prompt=pair["clean"],
+                                                                    corrupted_prompt=pair["corrupted"],
+                                                                    target_correct=pair["correct"],
+                                                                    target_incorrect=pair["incorrect"])
+                layer_recoveries.append(recovery)
+            recoveries.append(layer_recoveries)
+        all_recoveries.append(recoveries)
+
+    mean_recoveries = np.mean(np.stack(all_recoveries), axis=0)
 
     print("\nRecovery Matrix:")
     print(np.array2string(
-        np.array(recoveries),
+        np.array(mean_recoveries),
     formatter={"float_kind": lambda x: f"{x:.2f}"}
     ))
 
